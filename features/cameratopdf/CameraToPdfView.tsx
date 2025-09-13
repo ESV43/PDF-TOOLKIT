@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Spinner from '../../components/Spinner';
 import Alert from '../../components/Alert';
+import Button from '../../components/Button';
+import ToolHeader from '../../components/ToolHeader';
+import SuccessView from '../../components/SuccessView';
 import { ToolType } from '../../types';
 
 interface ProcessedImage {
@@ -13,7 +16,7 @@ interface CameraToPdfViewProps {
 }
 
 interface Point { x: number; y: number; }
-type ViewState = 'INITIAL' | 'SCANNING' | 'EDITING' | 'FILTERING' | 'SUCCESS';
+type ViewState = 'INITIAL' | 'SCANNING' | 'EDITING' | 'FILTERING';
 type Corner = 'tl' | 'tr' | 'bl' | 'br';
 type FilterType = 'normal' | 'bw' | 'enhance';
 
@@ -423,7 +426,6 @@ const CameraToPdfView: React.FC<CameraToPdfViewProps> = ({ navigateToTool }) => 
       setGeneratedPdfInfo({ blob, fileName });
       
       setScannedPages([]);
-      setViewState('SUCCESS');
     } catch (e) {
       console.error(e);
       setError('An error occurred while creating the PDF.');
@@ -460,80 +462,80 @@ const CameraToPdfView: React.FC<CameraToPdfViewProps> = ({ navigateToTool }) => 
     setViewState('INITIAL');
   }
 
+  if (generatedPdfInfo) {
+     return (
+        <SuccessView
+            title="Scan PDF Created!"
+            message="Your scanned document is ready. You can download it now or compress it to reduce the file size."
+            onReset={resetScanner}
+            resetText="Scan another document"
+        >
+            <Button onClick={handleDownload} variant="primary">Download PDF</Button>
+            <Button onClick={handleCompress} variant="secondary">Compress PDF</Button>
+        </SuccessView>
+    );
+  }
+
   const renderInitialView = () => (
-    <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-lg shadow-md max-w-lg mx-auto">
-        <h2 className="text-2xl font-bold mb-4">Document Scanner</h2>
-        <p className="text-slate-600 dark:text-slate-400 mb-6">Use your device's camera to create high-quality, cropped scans.</p>
+    <div className="text-center p-8 bg-white dark:bg-gray-900 rounded-2xl shadow-sm max-w-lg mx-auto">
+        <ToolHeader 
+            title="Document Scanner"
+            description="Use your device's camera to create high-quality, cropped scans of documents."
+        />
         {!isCvReady ? (
-            <Spinner message="Initializing scanner engine..." />
+            <div className="mt-6">
+                <Spinner message="Initializing scanner engine..." />
+            </div>
         ) : (
-            <button onClick={() => setViewState('SCANNING')} className="px-6 py-3 font-semibold text-white bg-sky-600 rounded-lg shadow-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-opacity-75">
-                Start Scanner
-            </button>
+            <div className="mt-6">
+                <Button onClick={() => setViewState('SCANNING')} variant="primary">Start Scanner</Button>
+            </div>
         )}
-    </div>
-  );
-  
-  const renderSuccessView = () => (
-    <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-lg shadow-md max-w-lg mx-auto">
-        <div className="mb-4 text-green-500 bg-green-100 dark:bg-green-900 rounded-full h-16 w-16 mx-auto flex items-center justify-center">
-             <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-        </div>
-        <h2 className="text-2xl font-bold mb-2">Scan PDF Created!</h2>
-        <p className="text-slate-600 dark:text-slate-400 mb-6">Your scanned document is ready. You can download it now or compress it to reduce the file size.</p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button onClick={handleDownload} className="px-6 py-3 font-semibold text-white bg-sky-600 rounded-lg shadow-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-opacity-75">
-                Download PDF
-            </button>
-            <button onClick={handleCompress} className="px-6 py-3 font-semibold text-sky-700 bg-sky-100 rounded-lg hover:bg-sky-200 dark:bg-slate-700 dark:text-sky-300 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-opacity-75">
-                Compress PDF
-            </button>
-        </div>
-        <button onClick={resetScanner} className="mt-6 text-sm text-slate-500 hover:underline">Scan another document</button>
     </div>
   );
 
   const renderScannerView = () => (
-     <div className="flex flex-col md:flex-row gap-6">
-        <div className="flex-grow md:w-2/3 bg-black rounded-lg overflow-hidden relative">
+     <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex-grow lg:w-2/3 bg-black rounded-2xl overflow-hidden relative aspect-[9/16] lg:aspect-video">
             <video ref={videoRef} autoPlay playsInline className="w-full h-full object-contain" />
-            {isProcessing && (
-                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                    <Spinner message={processingMessage} />
+            {(isProcessing || !videoRef.current?.srcObject) && (
+                <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                    <Spinner message={isProcessing ? processingMessage : "Starting camera..."} />
                 </div>
             )}
-            <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center bg-gradient-to-t from-black/50 to-transparent">
-                <button onClick={handleCapture} disabled={isProcessing} className="h-16 w-16 bg-white rounded-full border-4 border-slate-400 focus:border-sky-500 focus:outline-none ring-2 ring-offset-2 ring-offset-black/50 ring-transparent focus:ring-sky-500 transition-all disabled:bg-slate-300" aria-label="Capture Image"></button>
+            <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center bg-gradient-to-t from-black/60 to-transparent">
+                <button onClick={handleCapture} disabled={isProcessing} className="h-20 w-20 bg-white rounded-full border-4 border-gray-400 focus:border-indigo-500 focus:outline-none ring-2 ring-offset-2 ring-offset-black/50 ring-transparent focus:ring-indigo-500 transition-all disabled:bg-gray-300 active:scale-95" aria-label="Capture Image"></button>
             </div>
         </div>
-        <div className="flex-shrink-0 md:w-1/3">
-          <h3 className="text-lg font-medium text-slate-700 dark:text-slate-200 mb-2">Scanned Pages ({scannedPages.length})</h3>
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-inner min-h-[24rem] max-h-96 overflow-y-auto space-y-2">
+        <div className="flex-shrink-0 lg:w-1/3 space-y-4">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Scanned Pages ({scannedPages.length})</h3>
+          <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl shadow-sm min-h-[16rem] max-h-96 overflow-y-auto space-y-3">
             {scannedPages.length === 0 ? (
-              <p className="text-sm text-center text-slate-500 dark:text-slate-400 py-8">Point your camera at a document and press the capture button.</p>
+              <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-400 p-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+                <p className="text-sm">Your scanned pages will appear here.</p>
+              </div>
             ) : (
               scannedPages.map((img, index) => (
-                <div key={img.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-700/50 rounded-md group">
-                    <div className="flex items-center">
-                        <img src={img.dataUrl} alt={`Scan ${index + 1}`} className="w-16 h-16 object-contain bg-slate-200 dark:bg-slate-600 p-1 rounded-md mr-3" />
-                        <span className="font-medium text-sm">Page {index + 1}</span>
+                <div key={img.id} className="flex items-center justify-between p-2 bg-gray-100 dark:bg-gray-800 rounded-lg group">
+                    <div className="flex items-center overflow-hidden">
+                        <img src={img.dataUrl} alt={`Scan ${index + 1}`} className="w-16 h-16 object-contain bg-white dark:bg-gray-700 p-1 rounded-md mr-3" />
+                        <span className="font-medium text-sm truncate">Page {index + 1}</span>
                     </div>
-                    <button onClick={() => removePage(img.id)} className="p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-800/50 text-red-500 dark:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => removePage(img.id)} className="p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 text-red-500 dark:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
               ))
             )}
           </div>
-          <div className="mt-4 flex flex-col sm:flex-row gap-4">
-            <button onClick={() => setViewState('INITIAL')} className="flex-1 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <Button onClick={() => setViewState('INITIAL')} variant="secondary" className="flex-1">
                 Stop Scanner
-            </button>
-            <button onClick={createPdf} className="flex-1 px-6 py-3 font-semibold text-white bg-sky-600 rounded-lg shadow-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-opacity-75 disabled:bg-slate-400" disabled={scannedPages.length === 0 || isProcessing}>
+            </Button>
+            <Button onClick={createPdf} variant="primary" className="flex-1" disabled={scannedPages.length === 0 || isProcessing}>
                 Create PDF
-            </button>
+            </Button>
           </div>
         </div>
     </div>
@@ -556,27 +558,27 @@ const CameraToPdfView: React.FC<CameraToPdfViewProps> = ({ navigateToTool }) => 
     const polygonPoints = scaledCorners ? `${scaledCorners.tl.x},${scaledCorners.tl.y} ${scaledCorners.tr.x},${scaledCorners.tr.y} ${scaledCorners.br.x},${scaledCorners.br.y} ${scaledCorners.bl.x},${scaledCorners.bl.y}` : '';
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 pb-24 md:pb-0">
              <div 
-                className="relative w-full max-w-3xl mx-auto bg-black"
+                className="relative w-full max-w-3xl mx-auto bg-black rounded-lg"
                 onMouseMove={handlePointerMove}
                 onTouchMove={handlePointerMove}
                 onMouseUp={handlePointerUp}
                 onMouseLeave={handlePointerUp}
                 onTouchEnd={handlePointerUp}
             >
-                <img ref={imageRef} src={capturedImage?.dataUrl} alt="Captured for editing" className="w-full h-auto block" />
-                {isProcessing && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><Spinner message={processingMessage} /></div>}
+                <img ref={imageRef} src={capturedImage?.dataUrl} alt="Captured for editing" className="w-full h-auto block rounded-lg" />
+                {isProcessing && <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-lg"><Spinner message={processingMessage} /></div>}
                 {scaledCorners && !isProcessing && (
                     <svg className="absolute inset-0 w-full h-full" style={{ touchAction: 'none' }}>
-                        <polygon points={polygonPoints} fill="rgba(30, 144, 255, 0.2)" stroke="rgb(30, 144, 255)" strokeWidth="2" />
+                        <polygon points={polygonPoints} fill="rgba(79, 70, 229, 0.2)" stroke="rgb(79, 70, 229)" strokeWidth="2" />
                         {(Object.keys(scaledCorners) as Corner[]).map(key => (
                             <circle
                                 key={key}
                                 cx={scaledCorners[key].x}
                                 cy={scaledCorners[key].y}
-                                r="12"
-                                fill="rgba(30, 144, 255, 0.5)"
+                                r="16"
+                                fill="rgba(79, 70, 229, 0.5)"
                                 stroke="white"
                                 strokeWidth="2"
                                 className="cursor-grab active:cursor-grabbing"
@@ -587,46 +589,45 @@ const CameraToPdfView: React.FC<CameraToPdfViewProps> = ({ navigateToTool }) => 
                     </svg>
                 )}
             </div>
-            <div className="flex justify-center gap-4">
-                <button onClick={() => setViewState('SCANNING')} className="px-6 py-3 font-semibold text-slate-700 bg-slate-200 rounded-lg hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 disabled:opacity-50" disabled={isProcessing}>
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-t border-gray-200 dark:border-gray-800 md:static md:bg-transparent md:dark:bg-transparent md:p-0 md:border-none md:backdrop-blur-none flex justify-center gap-4">
+                <Button onClick={() => setViewState('SCANNING')} variant="secondary" disabled={isProcessing}>
                     Retake
-                </button>
-                <button onClick={handleApplyCrop} className="px-6 py-3 font-semibold text-white bg-sky-600 rounded-lg shadow-md hover:bg-sky-700 disabled:bg-slate-400" disabled={!corners || isProcessing}>
+                </Button>
+                <Button onClick={handleApplyCrop} variant="primary" disabled={!corners || isProcessing}>
                     Apply Crop
-                </button>
+                </Button>
             </div>
         </div>
     );
   };
   
   const renderFilteringView = () => (
-    <div className="space-y-4">
-        <h2 className="text-xl font-bold text-center text-slate-800 dark:text-slate-200">Apply a Filter</h2>
-        <div className="relative w-full max-w-lg mx-auto aspect-[8.5/11] bg-slate-200 dark:bg-slate-700 rounded-lg shadow-md flex items-center justify-center">
-            {previewUrl && <img src={previewUrl} alt="Filtered preview" className="w-full h-full object-contain rounded-lg" />}
+    <div className="space-y-6 pb-24 md:pb-0">
+        <h2 className="text-xl font-bold text-center text-gray-800 dark:text-gray-200">Apply a Filter</h2>
+        <div className="relative w-full max-w-lg mx-auto aspect-[8.5/11] bg-gray-200 dark:bg-gray-800 rounded-xl shadow-lg flex items-center justify-center">
+            {previewUrl && <img src={previewUrl} alt="Filtered preview" className="w-full h-full object-contain rounded-xl" />}
             {(isPreviewLoading || !previewUrl) && (
-                <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-lg">
+                <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-xl">
                     <Spinner message={isPreviewLoading ? "Applying filter..." : "Loading..."} />
                 </div>
             )}
         </div>
         
         <div>
-            <label className="block text-sm text-center font-medium text-slate-700 dark:text-slate-300 mb-3">Filter Options</label>
-            <div className="flex justify-center gap-2 sm:gap-4">
-                <button onClick={() => applyFilter('normal')} className={`px-4 py-2 text-sm font-medium rounded-md transition-colors w-28 ${activeFilter === 'normal' ? 'bg-sky-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600'}`}>Normal</button>
-                <button onClick={() => applyFilter('bw')} className={`px-4 py-2 text-sm font-medium rounded-md transition-colors w-28 ${activeFilter === 'bw' ? 'bg-sky-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600'}`}>Scan B&W</button>
-                <button onClick={() => applyFilter('enhance')} className={`px-4 py-2 text-sm font-medium rounded-md transition-colors w-28 ${activeFilter === 'enhance' ? 'bg-sky-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600'}`}>Enhanced</button>
+            <div className="flex justify-center gap-2 sm:gap-4 p-1 bg-gray-200 dark:bg-gray-800 rounded-full max-w-sm mx-auto">
+                <button onClick={() => applyFilter('normal')} className={`px-4 py-2 text-sm font-medium rounded-full transition-colors w-full ${activeFilter === 'normal' ? 'bg-white dark:bg-gray-700 text-indigo-700 dark:text-white shadow-sm' : 'text-gray-600 dark:text-gray-300'}`}>Normal</button>
+                <button onClick={() => applyFilter('bw')} className={`px-4 py-2 text-sm font-medium rounded-full transition-colors w-full ${activeFilter === 'bw' ? 'bg-white dark:bg-gray-700 text-indigo-700 dark:text-white shadow-sm' : 'text-gray-600 dark:text-gray-300'}`}>Scan B&W</button>
+                <button onClick={() => applyFilter('enhance')} className={`px-4 py-2 text-sm font-medium rounded-full transition-colors w-full ${activeFilter === 'enhance' ? 'bg-white dark:bg-gray-700 text-indigo-700 dark:text-white shadow-sm' : 'text-gray-600 dark:text-gray-300'}`}>Enhanced</button>
             </div>
         </div>
         
-        <div className="flex justify-center gap-4 pt-4 mt-4 border-t border-slate-200 dark:border-slate-700">
-            <button onClick={() => { setCroppedImage(null); setPreviewUrl(null); setViewState('SCANNING'); }} className="px-6 py-3 font-semibold text-slate-700 bg-slate-200 rounded-lg hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 disabled:opacity-50" disabled={isPreviewLoading}>
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-t border-gray-200 dark:border-gray-800 md:static md:bg-transparent md:dark:bg-transparent md:p-0 md:border-none md:backdrop-blur-none flex justify-center gap-4">
+            <Button onClick={() => { setCroppedImage(null); setPreviewUrl(null); setViewState('SCANNING'); }} variant="secondary" disabled={isPreviewLoading}>
                 Discard
-            </button>
-            <button onClick={handleAddFinalPage} className="px-6 py-3 font-semibold text-white bg-sky-600 rounded-lg shadow-md hover:bg-sky-700 disabled:bg-slate-400" disabled={!previewUrl || isPreviewLoading}>
+            </Button>
+            <Button onClick={handleAddFinalPage} variant="primary" disabled={!previewUrl || isPreviewLoading}>
                 Add Page
-            </button>
+            </Button>
         </div>
     </div>
   );
@@ -636,16 +637,14 @@ const CameraToPdfView: React.FC<CameraToPdfViewProps> = ({ navigateToTool }) => 
     case 'SCANNING': content = renderScannerView(); break;
     case 'EDITING': content = renderEditingView(); break;
     case 'FILTERING': content = renderFilteringView(); break;
-    case 'SUCCESS': content = renderSuccessView(); break;
     case 'INITIAL':
     default:
         content = renderInitialView(); break;
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="space-y-6">
       {error && <Alert type="error" message={error} />}
-      {isProcessing && !capturedImage && viewState !== 'FILTERING' && <Spinner message={processingMessage} />}
       {content}
     </div>
   );

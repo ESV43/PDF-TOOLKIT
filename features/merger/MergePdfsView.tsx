@@ -1,8 +1,9 @@
-
 import React, { useState, useCallback } from 'react';
 import FileDropzone from '../../components/FileDropzone';
 import Spinner from '../../components/Spinner';
 import Alert from '../../components/Alert';
+import Button from '../../components/Button';
+import ToolHeader from '../../components/ToolHeader';
 
 interface DraggableFile {
   id: number;
@@ -95,47 +96,54 @@ const MergePdfsView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="space-y-8">
+      <ToolHeader
+        title="Merge PDF"
+        description="Combine multiple PDFs into a single, unified document. Drag and drop to reorder files."
+      />
+
       {error && <Alert type="error" message={error} />}
+      
+      {isLoading && <Spinner message="Merging PDFs..." />}
+
       {!isLoading && files.length === 0 && (
         <FileDropzone onFilesSelected={handleFilesSelected} accept="application/pdf" multiple={true} message="Select two or more PDFs to merge" />
       )}
 
-      {isLoading && <Spinner message="Merging PDFs..." />}
-
       {!isLoading && files.length > 0 && (
         <div className="space-y-6">
-          <div>
-             <h3 className="text-lg font-medium text-slate-700 dark:text-slate-200 mb-2">Files to Merge (Drag to reorder)</h3>
-            <ul className="space-y-2">
-              {files.map((f, index) => (
-                <li
-                  key={f.id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, f.id)}
-                  onDragOver={(e) => handleDragOver(e, f.id)}
-                  onDragEnd={handleDragEnd}
-                  className={`flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg shadow-sm border dark:border-slate-700 cursor-move transition-opacity ${draggedItemId === f.id ? 'opacity-50' : 'opacity-100'}`}
-                >
-                  <div className="flex items-center">
-                    <span className="font-bold text-slate-500 dark:text-slate-400 mr-3">{index + 1}</span>
-                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{f.file.name}</p>
-                  </div>
-                  <button onClick={() => removeFile(f.id)} className="p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-800/50 text-red-500 dark:text-red-400">
-                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-                </li>
-              ))}
-            </ul>
+          <ul className="space-y-3">
+            {files.map((f, index) => (
+              <li
+                key={f.id}
+                draggable
+                onDragStart={(e) => handleDragStart(e, f.id)}
+                onDragOver={(e) => handleDragOver(e, f.id)}
+                onDragEnd={handleDragEnd}
+                className={`flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 cursor-move transition-opacity ${draggedItemId === f.id ? 'opacity-50 ring-2 ring-indigo-500' : 'opacity-100'}`}
+              >
+                <div className="flex items-center truncate">
+                  <span className="font-bold text-gray-500 dark:text-gray-400 mr-4">{index + 1}</span>
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{f.file.name}</p>
+                </div>
+                <button onClick={() => removeFile(f.id)} className="p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 text-red-500 dark:text-red-400 ml-2">
+                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </li>
+            ))}
+          </ul>
+          
+          <div className="md:hidden">
+            <FileDropzone onFilesSelected={handleFilesSelected} accept="application/pdf" multiple={true} message="Add more PDF files" />
           </div>
 
-          <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-slate-700">
-             <button onClick={() => setFiles([])} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600">
+          <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-t border-gray-200 dark:border-gray-800 md:static md:bg-transparent md:dark:bg-transparent md:p-0 md:border-none md:backdrop-blur-none flex justify-between items-center">
+             <Button onClick={() => setFiles([])} variant="secondary">
                 Clear All
-            </button>
-            <button onClick={mergePdfs} className="px-6 py-3 font-semibold text-white bg-sky-600 rounded-lg shadow-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-opacity-75 disabled:bg-slate-400" disabled={files.length < 2}>
+            </Button>
+            <Button onClick={mergePdfs} disabled={files.length < 2} variant="primary">
               Merge {files.length} PDFs
-            </button>
+            </Button>
           </div>
         </div>
       )}

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import FileDropzone from '../../components/FileDropzone';
 import Spinner from '../../components/Spinner';
 import Alert from '../../components/Alert';
+import Button from '../../components/Button';
+import ToolHeader from '../../components/ToolHeader';
 
 type Quality = 'high' | 'medium' | 'basic';
 
@@ -251,101 +253,107 @@ const CompressPdfView: React.FC<CompressPdfViewProps> = ({ initialFile }) => {
   const handleReset = () => {
     setFile(null);
     if(initialFile) {
-        // if it came from another tool, the user likely wants to go back to the dashboard
-        // A proper router would handle this better. For now, a reload is a simple way
-        // to reset the app state and go to the dashboard.
         window.location.reload();
     }
   }
+  
+  if (isLoading) return <Spinner message={loadingMessage} />;
+
+  if (!file) {
+    return (
+        <div className="space-y-8">
+            <ToolHeader 
+                title="Compress PDF"
+                description="Reduce the file size of your PDF while optimizing for visual quality."
+            />
+            {error && <Alert type="error" message={error} />}
+            {info && <Alert type="info" message={info} />}
+            <FileDropzone onFilesSelected={handleFileSelected} accept="application/pdf" multiple={false} message="Select a PDF to compress" />
+        </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="space-y-8 pb-24 md:pb-0">
+      <ToolHeader 
+          title="Compress PDF"
+          description="Choose your compression level and mode below."
+      />
       {error && <Alert type="error" message={error} />}
       {info && <Alert type="info" message={info} />}
       
-      {isLoading && <Spinner message={loadingMessage} />}
-
-      {!isLoading && !file && (
-        <FileDropzone onFilesSelected={handleFileSelected} accept="application/pdf" multiple={false} message="Select a PDF to compress" />
-      )}
-
-      {!isLoading && file && (
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md space-y-6">
-          <div>
-            <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100">Selected File</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">{file.name} - {(file.size / 1024 / 1024).toFixed(2)} MB</p>
+      <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm space-y-8">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Selected File</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">{file.name} - {(file.size / 1024 / 1024).toFixed(2)} MB</p>
+        </div>
+        
+        <fieldset>
+          <legend className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-2">
+            Compression Level
+          </legend>
+          <div className="space-y-3">
+            {(Object.keys(qualitySettings) as Quality[]).map((key) => (
+              <label key={key} htmlFor={key} className="flex items-center p-4 rounded-xl has-[:checked]:bg-indigo-50 has-[:checked]:ring-2 has-[:checked]:ring-indigo-500 dark:has-[:checked]:bg-indigo-900/30 cursor-pointer transition-all bg-gray-100 dark:bg-gray-800">
+                <input
+                  type="radio"
+                  id={key}
+                  name="quality"
+                  value={key}
+                  checked={quality === key}
+                  onChange={() => setQuality(key)}
+                  className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                />
+                <span className="ml-3 text-sm font-medium text-gray-800 dark:text-gray-200">{qualitySettings[key].label} <span className="text-gray-500 dark:text-gray-400 text-xs">{qualitySettings[key].description}</span></span>
+              </label>
+            ))}
           </div>
-          
-          <fieldset>
-            <legend className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">
-              {isAggressive ? 'Image Quality' : 'Compression Level'}
-            </legend>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
-              {isAggressive ? 'Higher quality results in a larger file. Lower quality is smaller.' : 'Higher quality means a larger file size. Affects both modes.'}
-            </p>
-            <div className="space-y-2">
-              {(Object.keys(qualitySettings) as Quality[]).map((key) => (
-                <label key={key} htmlFor={key} className="flex items-center p-3 rounded-md has-[:checked]:bg-sky-50 has-[:checked]:ring-2 has-[:checked]:ring-sky-500 dark:has-[:checked]:bg-sky-900/50 cursor-pointer transition-all bg-slate-50 dark:bg-slate-700/50">
-                  <input
-                    type="radio"
-                    id={key}
-                    name="quality"
-                    value={key}
-                    checked={quality === key}
-                    onChange={() => setQuality(key)}
-                    className="h-4 w-4 text-sky-600 border-slate-300 focus:ring-sky-500"
-                  />
-                  <span className="ml-3 text-sm font-medium text-slate-700 dark:text-slate-300">{qualitySettings[key].label} <span className="text-slate-500 dark:text-slate-400">{qualitySettings[key].description}</span></span>
-                </label>
-              ))}
+        </fieldset>
+        
+        <fieldset className="p-4 border border-amber-400 dark:border-amber-700 rounded-xl space-y-4 bg-amber-50/50 dark:bg-amber-900/10">
+           <legend className="text-sm font-semibold text-gray-900 dark:text-gray-100 px-2 -mx-2">Advanced Mode</legend>
+            <div className="flex items-start">
+                <div className="flex items-center h-5">
+                    <input 
+                        id="aggressive-mode" 
+                        type="checkbox"
+                        checked={isAggressive}
+                        onChange={(e) => setIsAggressive(e.target.checked)}
+                        className="focus:ring-amber-500 h-4 w-4 text-amber-600 border-gray-300 rounded" />
+                </div>
+                <div className="ml-3 text-sm">
+                    <label htmlFor="aggressive-mode" className="font-medium text-gray-800 dark:text-gray-200">Enable Aggressive Mode</label>
+                    <p className="text-gray-500 dark:text-gray-400">Guarantees size reduction by converting pages to images. <strong className="text-amber-700 dark:text-amber-500">Warning:</strong> text will become unsearchable unless OCR is enabled.</p>
+                </div>
             </div>
-          </fieldset>
-          
-          <fieldset className="p-4 border border-amber-300 dark:border-amber-700 rounded-lg space-y-4">
-             <legend className="text-base font-medium text-slate-900 dark:text-slate-100 px-2">Compression Mode</legend>
-              <div className="flex items-start">
+
+            {isAggressive && (
+              <div className="pl-7 flex items-start">
                   <div className="flex items-center h-5">
                       <input 
-                          id="aggressive-mode" 
+                          id="ocr-mode" 
                           type="checkbox"
-                          checked={isAggressive}
-                          onChange={(e) => setIsAggressive(e.target.checked)}
-                          className="focus:ring-amber-500 h-4 w-4 text-amber-600 border-slate-300 rounded" />
+                          checked={addOcr}
+                          onChange={(e) => setAddOcr(e.target.checked)}
+                          className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded" />
                   </div>
                   <div className="ml-3 text-sm">
-                      <label htmlFor="aggressive-mode" className="font-medium text-slate-800 dark:text-slate-200">Enable Aggressive Mode</label>
-                      <p className="text-slate-500 dark:text-slate-400">Guarantees size reduction by converting entire pages to images. <strong className="text-amber-700 dark:text-amber-500">Warning:</strong> text will become unsearchable unless OCR is enabled.</p>
+                      <label htmlFor="ocr-mode" className="font-medium text-gray-800 dark:text-gray-200">Make PDF searchable (OCR)</label>
+                      <p className="text-gray-500 dark:text-gray-400">Recognizes text on the page images, making the final PDF searchable. This increases processing time.</p>
                   </div>
               </div>
+            )}
+        </fieldset>
+      </div>
 
-              {isAggressive && (
-                <div className="pl-7 flex items-start">
-                    <div className="flex items-center h-5">
-                        <input 
-                            id="ocr-mode" 
-                            type="checkbox"
-                            checked={addOcr}
-                            onChange={(e) => setAddOcr(e.target.checked)}
-                            className="focus:ring-sky-500 h-4 w-4 text-sky-600 border-slate-300 rounded" />
-                    </div>
-                    <div className="ml-3 text-sm">
-                        <label htmlFor="ocr-mode" className="font-medium text-slate-800 dark:text-slate-200">Make PDF searchable (OCR)</label>
-                        <p className="text-slate-500 dark:text-slate-400">Recognizes text on the page images, making the final PDF searchable. This increases processing time.</p>
-                    </div>
-                </div>
-              )}
-          </fieldset>
-
-          <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-slate-700">
-            <button onClick={handleReset} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600">
-              {initialFile ? 'Back to Dashboard' : 'Choose Different PDF'}
-            </button>
-            <button onClick={compressPdf} className="px-6 py-3 font-semibold text-white bg-sky-600 rounded-lg shadow-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-opacity-75">
-              Compress PDF
-            </button>
-          </div>
-        </div>
-      )}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-t border-gray-200 dark:border-gray-800 md:static md:bg-transparent md:dark:bg-transparent md:p-0 md:border-none md:backdrop-blur-none flex justify-between items-center">
+        <Button onClick={handleReset} variant="secondary">
+          {initialFile ? 'Back' : 'Cancel'}
+        </Button>
+        <Button onClick={compressPdf} variant="primary">
+          Compress PDF
+        </Button>
+      </div>
     </div>
   );
 };

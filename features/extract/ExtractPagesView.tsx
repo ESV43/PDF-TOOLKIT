@@ -3,6 +3,8 @@ import FileDropzone from '../../components/FileDropzone';
 import Spinner from '../../components/Spinner';
 import Alert from '../../components/Alert';
 import PageThumbnail from '../../components/PageThumbnail';
+import Button from '../../components/Button';
+import ToolHeader from '../../components/ToolHeader';
 
 interface Page {
   id: number;
@@ -65,7 +67,7 @@ const ExtractPagesView: React.FC = () => {
     const pdfFile = selectedFiles.find(f => f.type === 'application/pdf');
     if (pdfFile) {
        if (pdfFile.size > 25 * 1024 * 1024) { // 25MB warning
-        setError("Warning: You've selected a large file. Page rendering may be slow.");
+        setError("Warning: You've selected a large file. Page rendering may be slow or unstable.");
       }
       setFile(pdfFile);
     } else {
@@ -118,59 +120,65 @@ const ExtractPagesView: React.FC = () => {
 
   const selectedCount = pages.filter(p => p.isSelected).length;
 
-  return (
-    <div className="max-w-6xl mx-auto">
-      {error && <Alert type={error.startsWith('Warning:') ? 'info' : 'error'} message={error} />}
-      {!isLoading && !file && (
+  if (isLoading) return <Spinner message={loadingMessage} />;
+
+  if (!file) {
+    return (
+       <div className="space-y-8">
+        <ToolHeader
+            title="Extract Pages"
+            description="Create a new PDF containing only your selected pages from an existing document."
+        />
+        {error && <Alert type="error" message={error} />}
         <FileDropzone onFilesSelected={handleFileSelected} accept="application/pdf" multiple={false} message="Select a PDF to extract pages from" />
-      )}
+      </div>
+    );
+  }
 
-      {isLoading && <Spinner message={loadingMessage} />}
-
-      {!isLoading && file && pages.length > 0 && (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
-            <h3 className="text-lg font-medium">Select pages to extract ({selectedCount} / {pages.length})</h3>
-            <div className="space-x-2">
-                <button onClick={selectAll} className="px-3 py-1 text-sm font-medium text-sky-700 bg-sky-100 border border-transparent rounded-md hover:bg-sky-200 dark:bg-sky-900/50 dark:text-sky-300 dark:hover:bg-sky-900">Select All</button>
-                <button onClick={deselectAll} className="px-3 py-1 text-sm font-medium text-slate-700 bg-slate-100 border border-transparent rounded-md hover:bg-slate-200 dark:bg-slate-700/50 dark:text-slate-300 dark:hover:bg-slate-700">Deselect All</button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {pages.map((page, index) => (
-              <div 
-                key={page.id}
-                onClick={() => togglePageSelection(page.id)}
-                className={`relative group border-2 rounded-lg p-1 cursor-pointer bg-white dark:bg-slate-800 shadow-sm transition-all ${page.isSelected ? 'border-sky-500 scale-105' : 'border-transparent hover:border-slate-300 dark:hover:border-slate-600'}`}
-                >
-                <PageThumbnail pdfDoc={pdfDocProxy.current} pageNumber={page.id}>
-                    {(dataUrl) => (
-                        <>
-                            <img src={dataUrl} alt={`Page ${index + 1}`} className="w-full h-auto rounded-md" />
-                             <div className={`absolute inset-0 flex items-center justify-center transition-colors ${page.isSelected ? 'bg-sky-900/30' : 'bg-black/0 group-hover:bg-black/20'}`}>
-                                <div className={`h-8 w-8 rounded-full flex items-center justify-center transition-all scale-75 ${page.isSelected ? 'bg-sky-500 scale-100' : 'bg-slate-500/50 opacity-0 group-hover:opacity-100'}`}>
-                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                                </div>
-                            </div>
-                            <span className="absolute bottom-1 left-1 bg-slate-800 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">{index + 1}</span>
-                        </>
-                    )}
-                </PageThumbnail>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-slate-700">
-             <button onClick={() => setFile(null)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600">
-                Choose Different PDF
-            </button>
-            <button onClick={savePdf} className="px-6 py-3 font-semibold text-white bg-sky-600 rounded-lg shadow-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-opacity-75 disabled:bg-slate-400" disabled={selectedCount === 0}>
-              Extract {selectedCount} Pages
-            </button>
-          </div>
+  return (
+    <div className="space-y-6 pb-24 md:pb-0">
+      {error && <Alert type={error.startsWith('Warning:') ? 'info' : 'error'} message={error} />}
+      
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 p-4 bg-white dark:bg-gray-900 rounded-2xl shadow-sm">
+        <h3 className="text-base font-semibold">Select pages to extract ({selectedCount} / {pages.length})</h3>
+        <div className="space-x-2 flex-shrink-0">
+            <Button onClick={selectAll} variant="secondary" className="!px-3 !py-1.5 !text-xs">Select All</Button>
+            <Button onClick={deselectAll} variant="secondary" className="!px-3 !py-1.5 !text-xs">Deselect All</Button>
         </div>
-      )}
+      </div>
+
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-4">
+        {pages.map((page, index) => (
+          <div 
+            key={page.id}
+            onClick={() => togglePageSelection(page.id)}
+            className={`relative group rounded-lg p-1.5 cursor-pointer bg-white dark:bg-gray-800 shadow-sm transition-all ${page.isSelected ? 'ring-2 ring-indigo-500 scale-105' : 'ring-1 ring-transparent hover:ring-gray-300 dark:hover:ring-gray-600'}`}
+            >
+            <PageThumbnail pdfDoc={pdfDocProxy.current} pageNumber={page.id}>
+                {(dataUrl) => (
+                    <>
+                        <img src={dataUrl} alt={`Page ${index + 1}`} className="w-full h-auto rounded-md shadow-inner" />
+                         <div className={`absolute inset-0 flex items-center justify-center transition-colors rounded-lg ${page.isSelected ? 'bg-indigo-900/40' : 'bg-black/0 group-hover:bg-black/30'}`}>
+                            <div className={`h-8 w-8 rounded-full flex items-center justify-center ring-2 ring-white/50 transition-all transform-gpu ${page.isSelected ? 'bg-indigo-500 scale-100' : 'bg-gray-500/50 scale-75 opacity-0 group-hover:opacity-100'}`}>
+                               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                            </div>
+                        </div>
+                        <span className="absolute bottom-1.5 left-1.5 bg-gray-900/60 text-white text-xs font-bold px-2 py-0.5 rounded-full backdrop-blur-sm">{index + 1}</span>
+                    </>
+                )}
+            </PageThumbnail>
+          </div>
+        ))}
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-t border-gray-200 dark:border-gray-800 md:static md:bg-transparent md:dark:bg-transparent md:p-0 md:border-none md:backdrop-blur-none flex justify-between items-center">
+         <Button onClick={() => setFile(null)} variant="secondary">
+            Choose Different PDF
+        </Button>
+        <Button onClick={savePdf} disabled={selectedCount === 0} variant="primary">
+          Extract {selectedCount} Pages
+        </Button>
+      </div>
     </div>
   );
 };

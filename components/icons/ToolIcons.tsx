@@ -1,11 +1,12 @@
+
 import React from 'react';
 
 const IconWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="mb-4 text-sky-500 dark:text-sky-400 h-10 w-10 mx-auto flex items-center justify-center">{children}</div>
+  <div className="mb-4 h-14 w-14 mx-auto flex items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400">{children}</div>
 );
 
 const SvgIcon: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         {children}
     </svg>
 );
@@ -21,6 +22,7 @@ export const PdfToImagesIcon = () => <IconWrapper><SvgIcon><path strokeLinecap="
 export const ProtectIcon = () => <IconWrapper><SvgIcon><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75" /><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm4.28 6.22a.75.75 0 00-1.06-1.06L12 10.94l-3.22-3.22a.75.75 0 00-1.06 1.06L10.94 12l-3.22 3.22a.75.75 0 101.06 1.06L12 13.06l3.22 3.22a.75.75 0 101.06-1.06L13.06 12l3.22-3.22z" clipRule="evenodd" /></SvgIcon></IconWrapper>;
 export const UnlockIcon = () => <IconWrapper><SvgIcon><path d="M12.75 15l3-3m0 0l-3-3m3 3h-7.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></SvgIcon></IconWrapper>;
 export const RotateIcon = () => <IconWrapper><SvgIcon><path strokeLinecap="round" strokeLinejoin="round" d="M15 15l-6 6m0 0l-6-6m6 6V9a6 6 0 0112 0v3" /></SvgIcon></IconWrapper>;
+// FIX: Changed closing tag from </Wrapper> to </IconWrapper>
 export const ExtractPagesIcon = () => <IconWrapper><SvgIcon><path strokeLinecap="round" strokeLinejoin="round" d="M9 4.5v15m6-15v15m-10.5-6H19.5" /></SvgIcon></IconWrapper>;
 export const AddWatermarkIcon = () => <IconWrapper><SvgIcon><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></SvgIcon></IconWrapper>;
 export const AddPageNumbersIcon = () => <IconWrapper><SvgIcon><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h7.5M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></SvgIcon></IconWrapper>;

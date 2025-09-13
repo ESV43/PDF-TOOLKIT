@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import FileDropzone from '../../components/FileDropzone';
 import Spinner from '../../components/Spinner';
 import Alert from '../../components/Alert';
+import Button from '../../components/Button';
+import ToolHeader from '../../components/ToolHeader';
 
 const OcrPdfView: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -124,7 +126,12 @@ const OcrPdfView: React.FC = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="space-y-8">
+      <ToolHeader 
+        title="PDF OCR"
+        description="Make a scanned, non-searchable PDF file searchable and selectable by adding an invisible text layer."
+      />
+
       {error && <Alert type="error" message={error} />}
       
       {isLoading && <Spinner message={loadingMessage} />}
@@ -134,23 +141,23 @@ const OcrPdfView: React.FC = () => {
       )}
 
       {!isLoading && file && (
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md space-y-6 text-center">
+        <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm space-y-6 text-center">
             <div>
-                <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100">Selected File</h3>
-                <p className="text-sm text-slate-600 dark:text-slate-400">{file.name} - {(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Selected File</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{file.name} - {(file.size / 1024 / 1024).toFixed(2)} MB</p>
             </div>
           
-            <p className="text-slate-600 dark:text-slate-400">
+            <p className="text-gray-600 dark:text-gray-400 max-w-xl mx-auto">
               This tool will process each page to recognize text, creating an invisible layer that makes your PDF searchable. This can take some time for large documents.
             </p>
           
-            <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-slate-700">
-                <button onClick={() => setFile(null)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600">
-                    Choose Different PDF
-                </button>
-                <button onClick={applyOcr} className="px-6 py-3 font-semibold text-white bg-sky-600 rounded-lg shadow-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-opacity-75">
+            <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <Button onClick={() => setFile(null)} variant="secondary">
+                    Cancel
+                </Button>
+                <Button onClick={applyOcr} variant="primary">
                     Make Searchable
-                </button>
+                </Button>
             </div>
         </div>
       )}

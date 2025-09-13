@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import FileDropzone from '../../components/FileDropzone';
 import Spinner from '../../components/Spinner';
 import Alert from '../../components/Alert';
+import Button from '../../components/Button';
+import ToolHeader from '../../components/ToolHeader';
 
 type ImageFormat = 'jpeg' | 'png';
 
@@ -80,8 +82,61 @@ const PdfToImagesView: React.FC = () => {
     }
   };
 
+  const renderOptions = () => (
+    <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm space-y-8">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Selected File</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400">{file?.name}</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Image Format</label>
+          <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-full">
+            <button onClick={() => setImageFormat('jpeg')} className={`w-full px-4 py-2 text-sm font-medium rounded-full transition-colors ${imageFormat === 'jpeg' ? 'bg-white dark:bg-gray-700 text-indigo-700 dark:text-white shadow-sm' : 'text-gray-600 dark:text-gray-300'}`}>
+              JPG
+            </button>
+            <button onClick={() => setImageFormat('png')} className={`w-full px-4 py-2 text-sm font-medium rounded-full transition-colors ${imageFormat === 'png' ? 'bg-white dark:bg-gray-700 text-indigo-700 dark:text-white shadow-sm' : 'text-gray-600 dark:text-gray-300'}`}>
+              PNG
+            </button>
+          </div>
+        </div>
+        {imageFormat === 'jpeg' && (
+          <div>
+            <label htmlFor="quality" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              JPG Quality: <span className="font-bold text-indigo-600 dark:text-indigo-400">{Math.round(quality * 100)}%</span>
+            </label>
+            <input
+              type="range"
+              id="quality"
+              min="0.1"
+              max="1"
+              step="0.01"
+              value={quality}
+              onChange={(e) => setQuality(parseFloat(e.target.value))}
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 mt-3 accent-indigo-600"
+            />
+          </div>
+        )}
+      </div>
+      
+      <div className="flex justify-end gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
+        <Button onClick={() => setFile(null)} variant="secondary">
+          Cancel
+        </Button>
+        <Button onClick={convertToImages} variant="primary">
+          Convert to Images
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="space-y-8">
+      <ToolHeader
+        title="PDF to Images"
+        description="Convert each page of a PDF into JPG or PNG images, downloaded as a ZIP file."
+      />
       {error && <Alert type="error" message={error} />}
       {isLoading && <Spinner message={loadingMessage} />}
 
@@ -89,54 +144,7 @@ const PdfToImagesView: React.FC = () => {
         <FileDropzone onFilesSelected={handleFileSelected} accept="application/pdf" multiple={false} message="Select a PDF to convert to images" />
       )}
 
-      {!isLoading && file && (
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md space-y-6">
-          <div>
-            <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100">Selected File</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">{file.name}</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Image Format</label>
-              <div className="flex gap-2">
-                <button onClick={() => setImageFormat('jpeg')} className={`w-full px-4 py-2 text-sm font-medium rounded-md transition-colors ${imageFormat === 'jpeg' ? 'bg-sky-600 text-white' : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600'}`}>
-                  JPG
-                </button>
-                <button onClick={() => setImageFormat('png')} className={`w-full px-4 py-2 text-sm font-medium rounded-md transition-colors ${imageFormat === 'png' ? 'bg-sky-600 text-white' : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600'}`}>
-                  PNG
-                </button>
-              </div>
-            </div>
-            {imageFormat === 'jpeg' && (
-              <div>
-                <label htmlFor="quality" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                  JPG Quality: {Math.round(quality * 100)}%
-                </label>
-                <input
-                  type="range"
-                  id="quality"
-                  min="0.1"
-                  max="1"
-                  step="0.01"
-                  value={quality}
-                  onChange={(e) => setQuality(parseFloat(e.target.value))}
-                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 mt-2"
-                />
-              </div>
-            )}
-          </div>
-          
-          <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-slate-700">
-            <button onClick={() => setFile(null)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600">
-              Choose Different PDF
-            </button>
-            <button onClick={convertToImages} className="px-6 py-3 font-semibold text-white bg-sky-600 rounded-lg shadow-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-opacity-75">
-              Convert to Images
-            </button>
-          </div>
-        </div>
-      )}
+      {!isLoading && file && renderOptions()}
     </div>
   );
 };

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import FileDropzone from '../../components/FileDropzone';
 import Spinner from '../../components/Spinner';
 import Alert from '../../components/Alert';
+import Button from '../../components/Button';
+import ToolHeader from '../../components/ToolHeader';
 
 type Position = 'header' | 'footer';
 type Alignment = 'left' | 'center' | 'right';
@@ -108,8 +110,76 @@ const AddPageNumbersView: React.FC = () => {
     }
   };
 
+  const renderOptions = () => (
+    <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm space-y-8">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Selected File</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400">{file?.name}</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Position</label>
+          <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-full">
+            {(['header', 'footer'] as Position[]).map(pos => (
+                <button key={pos} onClick={() => setPosition(pos)} className={`capitalize w-full px-4 py-2 text-sm font-medium rounded-full transition-colors ${position === pos ? 'bg-white dark:bg-gray-700 text-indigo-700 dark:text-white shadow-sm' : 'text-gray-600 dark:text-gray-300'}`}>
+                    {pos}
+                </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Alignment</label>
+          <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-full">
+             {(['left', 'center', 'right'] as Alignment[]).map(align => (
+                <button key={align} onClick={() => setAlignment(align)} className={`capitalize w-full px-4 py-2 text-sm font-medium rounded-full transition-colors ${alignment === align ? 'bg-white dark:bg-gray-700 text-indigo-700 dark:text-white shadow-sm' : 'text-gray-600 dark:text-gray-300'}`}>
+                    {align}
+                </button>
+            ))}
+          </div>
+        </div>
+        <div>
+            <label htmlFor="startNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Start numbering from</label>
+            <input
+                type="number"
+                id="startNumber"
+                value={startNumber}
+                onChange={(e) => setStartNumber(parseInt(e.target.value, 10) || 1)}
+                min="1"
+                className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            />
+        </div>
+        <div>
+            <label htmlFor="pageRange" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Pages to number (optional)</label>
+            <input
+                type="text"
+                id="pageRange"
+                value={pageRange}
+                onChange={(e) => setPageRange(e.target.value)}
+                placeholder="e.g., 1-5, 8, 10-12"
+                className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            />
+             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave blank to number all pages.</p>
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
+        <Button onClick={() => setFile(null)} variant="secondary">
+          Cancel
+        </Button>
+        <Button onClick={addNumbers} variant="primary">
+          Add Page Numbers
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="space-y-8">
+      <ToolHeader 
+        title="Add Page Numbers"
+        description="Insert page numbers into your PDF at various positions and styles."
+      />
       {error && <Alert type="error" message={error} />}
       {isLoading && <Spinner message="Adding page numbers..." />}
 
@@ -117,74 +187,7 @@ const AddPageNumbersView: React.FC = () => {
         <FileDropzone onFilesSelected={handleFileSelected} accept="application/pdf" multiple={false} message="Select a PDF to add page numbers" />
       )}
 
-      {!isLoading && file && (
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md space-y-6">
-          <div>
-            <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100">Selected File</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">{file.name}</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Position */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Position</label>
-              <div className="flex gap-2">
-                {(['footer', 'header'] as Position[]).map(pos => (
-                    <button key={pos} onClick={() => setPosition(pos)} className={`capitalize w-full px-4 py-2 text-sm font-medium rounded-md transition-colors ${position === pos ? 'bg-sky-600 text-white' : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600'}`}>
-                        {pos}
-                    </button>
-                ))}
-              </div>
-            </div>
-            {/* Alignment */}
-             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Alignment</label>
-              <div className="flex gap-2">
-                 {(['left', 'center', 'right'] as Alignment[]).map(align => (
-                    <button key={align} onClick={() => setAlignment(align)} className={`capitalize w-full px-4 py-2 text-sm font-medium rounded-md transition-colors ${alignment === align ? 'bg-sky-600 text-white' : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600'}`}>
-                        {align}
-                    </button>
-                ))}
-              </div>
-            </div>
-             {/* Start Number */}
-            <div>
-                <label htmlFor="startNumber" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Start numbering from</label>
-                <input
-                    type="number"
-                    id="startNumber"
-                    value={startNumber}
-                    onChange={(e) => setStartNumber(parseInt(e.target.value, 10) || 1)}
-                    min="1"
-                    className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                />
-            </div>
-            {/* Page Range */}
-            <div>
-                <label htmlFor="pageRange" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Pages to number (optional)</label>
-                <input
-                    type="text"
-                    id="pageRange"
-                    value={pageRange}
-                    onChange={(e) => setPageRange(e.target.value)}
-                    placeholder="e.g., 1-5, 8, 10-12"
-                    className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                />
-                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Leave blank to number all pages.</p>
-            </div>
-          </div>
-
-
-          <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-slate-700">
-            <button onClick={() => setFile(null)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600">
-              Choose Different PDF
-            </button>
-            <button onClick={addNumbers} className="px-6 py-3 font-semibold text-white bg-sky-600 rounded-lg shadow-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-opacity-75">
-              Add Page Numbers
-            </button>
-          </div>
-        </div>
-      )}
+      {!isLoading && file && renderOptions()}
     </div>
   );
 };

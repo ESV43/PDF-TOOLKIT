@@ -4,6 +4,8 @@ import Spinner from '../../components/Spinner';
 import Alert from '../../components/Alert';
 import { degrees } from 'pdf-lib';
 import PageThumbnail from '../../components/PageThumbnail';
+import Button from '../../components/Button';
+import ToolHeader from '../../components/ToolHeader';
 
 interface Page {
   id: number;
@@ -63,7 +65,7 @@ const RotatePdfView: React.FC = () => {
     const pdfFile = selectedFiles.find(f => f.type === 'application/pdf');
     if (pdfFile) {
        if (pdfFile.size > 25 * 1024 * 1024) { // 25MB warning
-        setError("Warning: You've selected a large file. Page rendering may be slow.");
+        setError("Warning: You've selected a large file. Page rendering may be slow or unstable.");
       }
       setFile(pdfFile);
     } else {
@@ -119,54 +121,60 @@ const RotatePdfView: React.FC = () => {
   
   const hasRotations = pages.some(p => p.rotation !== 0);
 
-  return (
-    <div className="max-w-6xl mx-auto">
-      {error && <Alert type={error.startsWith('Warning:') ? 'info' : 'error'} message={error} />}
-      {!isLoading && !file && (
+  if (isLoading) return <Spinner message={loadingMessage} />;
+
+  if (!file) {
+    return (
+      <div className="space-y-8">
+        <ToolHeader 
+          title="Rotate PDF Pages"
+          description="Rotate all or selected pages in your PDF document permanently."
+        />
+        {error && <Alert type={error.startsWith('Warning:') ? 'info' : 'error'} message={error} />}
         <FileDropzone onFilesSelected={handleFileSelected} accept="application/pdf" multiple={false} message="Select a PDF to rotate its pages" />
-      )}
+      </div>
+    );
+  }
 
-      {isLoading && <Spinner message={loadingMessage} />}
+  return (
+    <div className="space-y-6 pb-24 md:pb-0">
+      {error && <Alert type={error.startsWith('Warning:') ? 'info' : 'error'} message={error} />}
+      
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 p-4 bg-white dark:bg-gray-900 rounded-2xl shadow-sm">
+          <h3 className="text-base font-semibold">Rotate all pages:</h3>
+          <div className="space-x-2 flex-shrink-0">
+              <Button onClick={() => rotateAll(90)} variant="secondary" className="!px-3 !py-1.5 !text-xs">Rotate Right ↻</Button>
+              <Button onClick={() => rotateAll(270)} variant="secondary" className="!px-3 !py-1.5 !text-xs">Rotate Left ↺</Button>
+          </div>
+      </div>
 
-      {!isLoading && file && pages.length > 0 && (
-        <div className="space-y-6">
-            <div className="flex justify-center items-center p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm gap-4">
-                <h3 className="text-lg font-medium">Rotate all pages:</h3>
-                <div className="space-x-2">
-                    <button onClick={() => rotateAll(90)} className="px-3 py-1.5 text-sm font-medium text-slate-700 bg-slate-100 border border-transparent rounded-md hover:bg-slate-200 dark:bg-slate-700/50 dark:text-slate-300 dark:hover:bg-slate-700">Rotate Right ↻</button>
-                    <button onClick={() => rotateAll(270)} className="px-3 py-1.5 text-sm font-medium text-slate-700 bg-slate-100 border border-transparent rounded-md hover:bg-slate-200 dark:bg-slate-700/50 dark:text-slate-300 dark:hover:bg-slate-700">Rotate Left ↺</button>
-                </div>
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-4">
+        {pages.map((page, index) => (
+          <div key={page.id} className="relative group bg-white dark:bg-gray-800 rounded-lg shadow-sm p-1.5">
+            <div style={{ transform: `rotate(${page.rotation}deg)` }} className="transition-transform duration-300 rounded-md overflow-hidden">
+                <PageThumbnail pdfDoc={pdfDocProxy.current} pageNumber={page.id}>
+                    {(dataUrl) => (
+                       <img src={dataUrl} alt={`Page ${index + 1}`} className="w-full h-auto" />
+                    )}
+                </PageThumbnail>
             </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {pages.map((page, index) => (
-              <div key={page.id} className="relative group bg-white dark:bg-slate-800 rounded-lg shadow-sm p-1">
-                <div style={{ transform: `rotate(${page.rotation}deg)` }} className="transition-transform duration-300">
-                    <PageThumbnail pdfDoc={pdfDocProxy.current} pageNumber={page.id}>
-                        {(dataUrl) => (
-                           <img src={dataUrl} alt={`Page ${index + 1}`} className="w-full h-auto rounded-md" />
-                        )}
-                    </PageThumbnail>
-                </div>
-                <div className="absolute bottom-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                    <button onClick={() => rotatePage(page.id, 270)} className="h-7 w-7 bg-slate-800/60 text-white rounded-full flex items-center justify-center hover:bg-slate-900/80" aria-label="Rotate left">↺</button>
-                    <button onClick={() => rotatePage(page.id, 90)} className="h-7 w-7 bg-slate-800/60 text-white rounded-full flex items-center justify-center hover:bg-slate-900/80" aria-label="Rotate right">↻</button>
-                </div>
-                <span className="absolute bottom-1 left-1 bg-slate-800 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">{index + 1}</span>
-              </div>
-            ))}
+            <div className="absolute inset-0 flex flex-col items-center justify-end p-2 gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-black/30 rounded-lg">
+                <button onClick={() => rotatePage(page.id, 90)} className="h-9 w-9 bg-gray-900/60 text-white rounded-full flex items-center justify-center hover:bg-gray-900/80 backdrop-blur-sm" aria-label="Rotate right">↻</button>
+                <button onClick={() => rotatePage(page.id, 270)} className="h-9 w-9 bg-gray-900/60 text-white rounded-full flex items-center justify-center hover:bg-gray-900/80 backdrop-blur-sm" aria-label="Rotate left">↺</button>
+            </div>
+            <span className="absolute bottom-1.5 left-1.5 bg-gray-900/60 text-white text-xs font-bold px-2 py-0.5 rounded-full backdrop-blur-sm">{index + 1}</span>
           </div>
+        ))}
+      </div>
 
-          <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-slate-700">
-             <button onClick={() => setFile(null)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600">
-                Choose Different PDF
-            </button>
-            <button onClick={savePdf} className="px-6 py-3 font-semibold text-white bg-sky-600 rounded-lg shadow-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-opacity-75 disabled:bg-slate-400" disabled={!hasRotations}>
-              Save Rotated PDF
-            </button>
-          </div>
-        </div>
-      )}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-t border-gray-200 dark:border-gray-800 md:static md:bg-transparent md:dark:bg-transparent md:p-0 md:border-none md:backdrop-blur-none flex justify-between items-center">
+         <Button onClick={() => setFile(null)} variant="secondary">
+            Choose Different PDF
+        </Button>
+        <Button onClick={savePdf} disabled={!hasRotations} variant="primary">
+          Save Rotated PDF
+        </Button>
+      </div>
     </div>
   );
 };

@@ -1,7 +1,10 @@
+
 import React, { useState } from 'react';
 import FileDropzone from '../../components/FileDropzone';
 import Spinner from '../../components/Spinner';
 import Alert from '../../components/Alert';
+import Button from '../../components/Button';
+import ToolHeader from '../../components/ToolHeader';
 
 const UnlockPdfView: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -73,7 +76,6 @@ const UnlockPdfView: React.FC = () => {
       setIsPasswordRequired(false);
 
     } catch (e: any) {
-      console.error(e);
        if (e.message.includes('password')) {
             setError('Incorrect password or the file is corrupted.');
             setIsPasswordRequired(true);
@@ -90,8 +92,45 @@ const UnlockPdfView: React.FC = () => {
       unlockPdf(password);
   }
 
+  const renderPasswordForm = () => (
+    <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm space-y-8">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Unlock Protected File</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400">{file?.name}</p>
+      </div>
+
+      <div>
+        {/* FIX: Changed class to className */}
+        <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">PDF Password</label>
+        <input
+            type="password"
+            id="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Enter current password"
+            className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            required
+            autoFocus
+        />
+      </div>
+
+      <div className="flex justify-end gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
+        <Button type="button" onClick={() => setFile(null)} variant="secondary">
+          Cancel
+        </Button>
+        <Button type="submit" disabled={!password} variant="primary">
+          Unlock PDF
+        </Button>
+      </div>
+    </form>
+  );
+
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="space-y-8">
+      <ToolHeader 
+        title="Unlock PDF"
+        description="Remove password and security restrictions from a protected PDF file."
+      />
       {error && <Alert type="error" message={error} />}
       {isLoading && <Spinner message="Attempting to unlock PDF..." />}
 
@@ -99,36 +138,7 @@ const UnlockPdfView: React.FC = () => {
         <FileDropzone onFilesSelected={handleFileSelected} accept="application/pdf" multiple={false} message="Select a password-protected PDF" />
       )}
 
-      {!isLoading && file && isPasswordRequired && (
-        <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md space-y-6">
-          <div>
-            <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100">Unlock Protected File</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">{file.name}</p>
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-300">PDF Password</label>
-            <input
-                type="password"
-                id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter current password"
-                className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                required
-            />
-          </div>
-
-          <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-slate-700">
-            <button type="button" onClick={() => setFile(null)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600">
-              Choose Different PDF
-            </button>
-            <button type="submit" className="px-6 py-3 font-semibold text-white bg-sky-600 rounded-lg shadow-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-opacity-75 disabled:bg-slate-400" disabled={!password}>
-              Unlock PDF
-            </button>
-          </div>
-        </form>
-      )}
+      {!isLoading && file && isPasswordRequired && renderPasswordForm()}
     </div>
   );
 };

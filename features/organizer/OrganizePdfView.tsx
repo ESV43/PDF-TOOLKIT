@@ -3,6 +3,8 @@ import FileDropzone from '../../components/FileDropzone';
 import Spinner from '../../components/Spinner';
 import Alert from '../../components/Alert';
 import PageThumbnail from '../../components/PageThumbnail';
+import Button from '../../components/Button';
+import ToolHeader from '../../components/ToolHeader';
 
 interface Page {
   id: number;
@@ -65,7 +67,7 @@ const OrganizePdfView: React.FC = () => {
     const pdfFile = selectedFiles.find(f => f.type === 'application/pdf');
     if (pdfFile) {
       if (pdfFile.size > 25 * 1024 * 1024) { // 25MB warning
-        setError("Warning: You've selected a large file. Page rendering may be slow.");
+        setError("Warning: You've selected a large file. Page rendering may be slow or unstable.");
       }
       setFile(pdfFile);
     } else {
@@ -136,54 +138,60 @@ const OrganizePdfView: React.FC = () => {
     }
   };
 
-  return (
-    <div className="max-w-6xl mx-auto">
-      {error && <Alert type={error.startsWith('Warning:') ? 'info' : 'error'} message={error} />}
-      {!isLoading && !file && (
+  if (isLoading) return <Spinner message={loadingMessage} />;
+
+  if (!file) {
+    return (
+       <div className="space-y-8">
+        <ToolHeader
+            title="Rearrange Pages"
+            description="Visually reorder, or delete pages from a PDF file. Drag and drop pages to change their order."
+        />
+         {error && <Alert type="error" message={error} />}
         <FileDropzone onFilesSelected={handleFileSelected} accept="application/pdf" multiple={false} message="Select a PDF to organize its pages" />
-      )}
+      </div>
+    );
+  }
 
-      {isLoading && <Spinner message={loadingMessage} />}
-
-      {!isLoading && file && pages.length > 0 && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {pages.map((page, index) => (
-              <div 
-                key={page.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, page.id)}
-                onDragOver={(e) => handleDragOver(e, page.id)}
-                onDragEnd={handleDragEnd}
-                className={`relative group border-2 rounded-lg p-1 cursor-move bg-white dark:bg-slate-800 shadow-sm transition-all ${draggedItemId === page.id ? 'border-sky-500 scale-105' : 'border-transparent'}`}
-                >
-                <PageThumbnail pdfDoc={pdfDocProxy.current} pageNumber={page.id}>
-                  {(dataUrl) => (
-                    <>
-                      <img src={dataUrl} alt={`Page ${index + 1}`} className="w-full h-auto rounded-md" />
-                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-colors flex items-center justify-center">
-                        <button onClick={() => deletePage(page.id)} className="absolute top-1 right-1 h-6 w-6 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transform scale-50 group-hover:scale-100 transition-all" aria-label="Delete page">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                      </div>
-                      <span className="absolute bottom-1 left-1 bg-slate-800 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">{index + 1}</span>
-                    </>
-                  )}
-                </PageThumbnail>
-              </div>
-            ))}
+  return (
+    <div className="space-y-6 pb-24 md:pb-0">
+      {error && <Alert type={error.startsWith('Warning:') ? 'info' : 'error'} message={error} />}
+      
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-4">
+        {pages.map((page, index) => (
+          <div 
+            key={page.id}
+            draggable
+            onDragStart={(e) => handleDragStart(e, page.id)}
+            onDragOver={(e) => handleDragOver(e, page.id)}
+            onDragEnd={handleDragEnd}
+            className={`relative group rounded-lg p-1.5 cursor-move bg-white dark:bg-gray-800 shadow-sm transition-all ${draggedItemId === page.id ? 'ring-2 ring-indigo-500 scale-105' : 'ring-1 ring-transparent'}`}
+            >
+            <PageThumbnail pdfDoc={pdfDocProxy.current} pageNumber={page.id}>
+              {(dataUrl) => (
+                <>
+                  <img src={dataUrl} alt={`Page ${index + 1}`} className="w-full h-auto rounded-md shadow-inner" />
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-colors flex items-center justify-center rounded-lg">
+                    <button onClick={() => deletePage(page.id)} className="absolute top-1.5 right-1.5 h-7 w-7 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transform scale-75 group-hover:scale-100 transition-all hover:bg-red-700" aria-label="Delete page">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                  <span className="absolute bottom-1.5 left-1.5 bg-gray-900/60 text-white text-xs font-bold px-2 py-0.5 rounded-full backdrop-blur-sm">{index + 1}</span>
+                </>
+              )}
+            </PageThumbnail>
           </div>
+        ))}
+      </div>
 
-          <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-slate-700">
-             <button onClick={() => setFile(null)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600">
-                Choose Different PDF
-            </button>
-            <button onClick={savePdf} className="px-6 py-3 font-semibold text-white bg-sky-600 rounded-lg shadow-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-opacity-75 disabled:bg-slate-400" disabled={pages.length === 0}>
-              Save New PDF
-            </button>
-          </div>
-        </div>
-      )}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-t border-gray-200 dark:border-gray-800 md:static md:bg-transparent md:dark:bg-transparent md:p-0 md:border-none md:backdrop-blur-none flex justify-between items-center">
+         <Button onClick={() => setFile(null)} variant="secondary">
+            Choose Different PDF
+        </Button>
+        <Button onClick={savePdf} disabled={pages.length === 0} variant="primary">
+          Save New PDF
+        </Button>
+      </div>
     </div>
   );
 };

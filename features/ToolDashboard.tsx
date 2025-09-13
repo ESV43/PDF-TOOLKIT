@@ -9,18 +9,18 @@ interface ToolDashboardProps {
 const ToolCard: React.FC<{ tool: Tool; onSelect: () => void }> = ({ tool, onSelect }) => (
   <button
     onClick={onSelect}
-    className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 text-center transform hover:-translate-y-1 transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-opacity-50"
+    className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm p-6 text-left group transition-all duration-300 ease-in-out hover:shadow-lg hover:-translate-y-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-gray-100 dark:focus-visible:ring-offset-gray-950"
     aria-label={tool.title}
   >
     {tool.icon}
-    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-1">{tool.title}</h3>
-    <p className="text-sm text-slate-500 dark:text-slate-400">{tool.description}</p>
+    <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-1">{tool.title}</h3>
+    <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{tool.description}</p>
   </button>
 );
 
 const ToolDashboard: React.FC<ToolDashboardProps> = ({ onSelectTool }) => {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
       {TOOLS.map((tool) => (
         <ToolCard key={tool.id} tool={tool} onSelect={() => onSelectTool(tool)} />
       ))}

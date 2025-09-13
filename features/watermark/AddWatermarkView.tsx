@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import FileDropzone from '../../components/FileDropzone';
 import Spinner from '../../components/Spinner';
 import Alert from '../../components/Alert';
+import Button from '../../components/Button';
+import ToolHeader from '../../components/ToolHeader';
 import { degrees, rgb, StandardFonts } from 'pdf-lib';
 
 type WatermarkType = 'text' | 'image';
@@ -104,15 +106,15 @@ const AddWatermarkView: React.FC = () => {
         const margin = 50;
         // Calculate position
         switch(position) {
-            case 'topLeft': x = margin; y = height - margin; break;
-            case 'topCenter': x = width / 2; y = height - margin; break;
-            case 'topRight': x = width - margin; y = height - margin; break;
-            case 'midLeft': x = margin; y = height / 2; break;
-            case 'midCenter': x = width / 2; y = height / 2; break;
-            case 'midRight': x = width - margin; y = height / 2; break;
+            case 'topLeft': x = margin; y = height - margin - wmDims.height; break;
+            case 'topCenter': x = width / 2 - wmDims.width / 2; y = height - margin - wmDims.height; break;
+            case 'topRight': x = width - margin - wmDims.width; y = height - margin - wmDims.height; break;
+            case 'midLeft': x = margin; y = height / 2 - wmDims.height / 2; break;
+            case 'midCenter': x = width / 2 - wmDims.width / 2; y = height / 2 - wmDims.height / 2; break;
+            case 'midRight': x = width - margin - wmDims.width; y = height / 2 - wmDims.height / 2; break;
             case 'botLeft': x = margin; y = margin; break;
-            case 'botCenter': x = width / 2; y = margin; break;
-            case 'botRight': x = width - margin; y = margin; break;
+            case 'botCenter': x = width / 2 - wmDims.width / 2; y = margin; break;
+            case 'botRight': x = width - margin - wmDims.width; y = margin; break;
         }
 
         if (watermarkType === 'text') {
@@ -123,13 +125,10 @@ const AddWatermarkView: React.FC = () => {
                 color: hexToRgb(color),
                 opacity,
                 rotate: degrees(rotation),
-                xSkew: degrees(0),
-                ySkew: degrees(0),
              });
         } else if (watermarkElement) {
             page.drawImage(watermarkElement, {
-                x: x - wmDims.width / 2,
-                y: y - wmDims.height / 2,
+                x, y,
                 width: wmDims.width,
                 height: wmDims.height,
                 opacity,
@@ -162,13 +161,102 @@ const AddWatermarkView: React.FC = () => {
   const PositionButton: React.FC<{ value: Position }> = ({ value }) => (
     <button
       onClick={() => setPosition(value)}
-      className={`w-full h-10 rounded-md transition-colors ${position === value ? 'bg-sky-600' : 'bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600'}`}
+      className={`w-full h-12 rounded-lg transition-colors ${position === value ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'}`}
       aria-label={`Position ${value}`}
      />
   );
 
+  const renderOptions = () => (
+    <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm space-y-8">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Selected File</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400">{file?.name}</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="space-y-6">
+             <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Watermark Type</label>
+                <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-full">
+                    <button onClick={() => setWatermarkType('text')} className={`w-full py-2 text-sm font-medium rounded-full ${watermarkType==='text' ? 'bg-white dark:bg-gray-700 text-indigo-700 dark:text-white shadow-sm':'text-gray-600 dark:text-gray-300'}`}>Text</button>
+                    <button onClick={() => setWatermarkType('image')} className={`w-full py-2 text-sm font-medium rounded-full ${watermarkType==='image' ? 'bg-white dark:bg-gray-700 text-indigo-700 dark:text-white shadow-sm':'text-gray-600 dark:text-gray-300'}`}>Image</button>
+                </div>
+             </div>
+
+            {watermarkType === 'text' ? (
+                <div className="space-y-4">
+                    <div>
+                         <label htmlFor="watermarkText" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Text</label>
+                         <input type="text" id="watermarkText" value={text} onChange={e => setText(e.target.value)} className="mt-1 block w-full input px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                    </div>
+                     <div className="grid grid-cols-2 gap-4">
+                        <div>
+                             <label htmlFor="fontSize" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Font Size: <span className="font-bold">{fontSize}pt</span></label>
+                             <input type="range" id="fontSize" min="8" max="200" value={fontSize} onChange={e => setFontSize(parseInt(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 mt-2 accent-indigo-600" />
+                        </div>
+                        <div>
+                             <label htmlFor="fontColor" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Color</label>
+                             <input type="color" id="fontColor" value={color} onChange={e => setColor(e.target.value)} className="mt-1 h-10 w-full p-0 border-0 bg-transparent cursor-pointer" />
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div>
+                    {imagePreview ? (
+                        <div className="text-center space-y-2">
+                            <img src={imagePreview} alt="Watermark preview" className="max-h-40 mx-auto rounded-md border dark:border-gray-700" />
+                            <Button variant="secondary" onClick={() => {setImageFile(null); setImagePreview(null)}}>Change Image</Button>
+                        </div>
+                    ) : (
+                       <FileDropzone onFilesSelected={handleImageSelected} accept="image/*" message="Select watermark image" />
+                    )}
+                </div>
+            )}
+             <div>
+                 <label htmlFor="opacity" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Opacity: <span className="font-bold">{Math.round(opacity*100)}%</span></label>
+                 <input type="range" id="opacity" min="0" max="1" step="0.05" value={opacity} onChange={e => setOpacity(parseFloat(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 mt-2 accent-indigo-600" />
+            </div>
+             <div>
+                 <label htmlFor="rotation" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Rotation: <span className="font-bold">{rotation}°</span></label>
+                 <input type="range" id="rotation" min="-180" max="180" value={rotation} onChange={e => setRotation(parseInt(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 mt-2 accent-indigo-600" />
+            </div>
+        </div>
+        
+        <div>
+             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Position</label>
+             <div className="grid grid-cols-3 gap-2 p-2 bg-gray-100 dark:bg-gray-800 rounded-xl">
+                <PositionButton value="topLeft" />
+                <PositionButton value="topCenter" />
+                <PositionButton value="topRight" />
+                <PositionButton value="midLeft" />
+                <PositionButton value="midCenter" />
+                <PositionButton value="midRight" />
+                <PositionButton value="botLeft" />
+                <PositionButton value="botCenter" />
+                <PositionButton value="botRight" />
+             </div>
+        </div>
+      </div>
+      
+      <div className="flex justify-end gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
+        <Button onClick={() => setFile(null)} variant="secondary">
+          Cancel
+        </Button>
+        <Button onClick={addWatermark} variant="primary">
+          Add Watermark
+        </Button>
+      </div>
+
+    </div>
+  );
+
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="space-y-8">
+      <ToolHeader 
+        title="Add Watermark"
+        description="Stamp an image or text over your PDF pages with various customization options."
+      />
+
       {error && <Alert type="error" message={error} />}
       {isLoading && <Spinner message="Adding watermark to PDF..." />}
 
@@ -176,83 +264,7 @@ const AddWatermarkView: React.FC = () => {
         <FileDropzone onFilesSelected={handleFileSelected} accept="application/pdf" multiple={false} message="Select a PDF to add a watermark" />
       )}
 
-      {!isLoading && file && (
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md space-y-6">
-          <div>
-            <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100">Selected File</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">{file.name}</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-                 <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Watermark Type</label>
-                    <div className="flex gap-2">
-                        <button onClick={() => setWatermarkType('text')} className={`w-full py-2 text-sm font-medium rounded-md ${watermarkType==='text' ? 'bg-sky-600 text-white':'bg-slate-200 dark:bg-slate-700'}`}>Text</button>
-                        <button onClick={() => setWatermarkType('image')} className={`w-full py-2 text-sm font-medium rounded-md ${watermarkType==='image' ? 'bg-sky-600 text-white':'bg-slate-200 dark:bg-slate-700'}`}>Image</button>
-                    </div>
-                 </div>
-
-                {watermarkType === 'text' ? (
-                    <div className="space-y-4">
-                        <div>
-                             <label htmlFor="watermarkText" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Text</label>
-                             <input type="text" id="watermarkText" value={text} onChange={e => setText(e.target.value)} className="mt-1 block w-full input" />
-                        </div>
-                         <div>
-                             <label htmlFor="fontSize" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Font Size: {fontSize}pt</label>
-                             <input type="range" id="fontSize" min="8" max="200" value={fontSize} onChange={e => setFontSize(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 mt-2" />
-                        </div>
-                        <div>
-                             <label htmlFor="fontColor" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Color</label>
-                             <input type="color" id="fontColor" value={color} onChange={e => setColor(e.target.value)} className="mt-1 h-10 w-full" />
-                        </div>
-                    </div>
-                ) : (
-                    <div>
-                        {imagePreview ? (
-                            <img src={imagePreview} alt="Watermark preview" className="max-h-40 mx-auto rounded-md border dark:border-slate-600" />
-                        ) : (
-                           <FileDropzone onFilesSelected={handleImageSelected} accept="image/*" message="Select watermark image" />
-                        )}
-                    </div>
-                )}
-                 <div>
-                     <label htmlFor="opacity" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Opacity: {Math.round(opacity*100)}%</label>
-                     <input type="range" id="opacity" min="0" max="1" step="0.05" value={opacity} onChange={e => setOpacity(parseFloat(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 mt-2" />
-                </div>
-                 <div>
-                     <label htmlFor="rotation" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Rotation: {rotation}°</label>
-                     <input type="range" id="rotation" min="-180" max="180" value={rotation} onChange={e => setRotation(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 mt-2" />
-                </div>
-            </div>
-            
-            <div>
-                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Position</label>
-                 <div className="grid grid-cols-3 gap-2">
-                    <PositionButton value="topLeft" />
-                    <PositionButton value="topCenter" />
-                    <PositionButton value="topRight" />
-                    <PositionButton value="midLeft" />
-                    <PositionButton value="midCenter" />
-                    <PositionButton value="midRight" />
-                    <PositionButton value="botLeft" />
-                    <PositionButton value="botCenter" />
-                    <PositionButton value="botRight" />
-                 </div>
-            </div>
-          </div>
-
-          <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-slate-700">
-            <button onClick={() => setFile(null)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600">
-              Choose Different PDF
-            </button>
-            <button onClick={addWatermark} className="px-6 py-3 font-semibold text-white bg-sky-600 rounded-lg shadow-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-opacity-75">
-              Add Watermark
-            </button>
-          </div>
-        </div>
-      )}
+      {!isLoading && file && renderOptions()}
     </div>
   );
 };
