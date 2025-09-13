@@ -51,9 +51,12 @@ const PdfToImagesView: React.FC = () => {
           await page.render({ canvasContext: context, viewport: viewport }).promise;
           const dataUrl = canvas.toDataURL(`image/${imageFormat}`, imageFormat === 'jpeg' ? quality : undefined);
           const imageData = dataUrl.split(',')[1];
-          const fileName = `page_${i}.${imageFormat === 'jpeg' ? 'jpg' : 'png'}`;
+          const fileName = `page_${String(i).padStart(4, '0')}.${imageFormat === 'jpeg' ? 'jpg' : 'png'}`;
           zip.file(fileName, imageData, { base64: true });
         }
+        
+        // Yield to the main thread to prevent UI freezing on large files
+        await new Promise(resolve => setTimeout(resolve, 10));
       }
 
       setLoadingMessage('Creating zip file...');

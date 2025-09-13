@@ -90,6 +90,8 @@ const OcrPdfView: React.FC = () => {
                     });
                 });
             }
+            // Yield to the main thread to prevent UI freezing on large files
+            await new Promise(resolve => setTimeout(resolve, 10));
         }
     
         setLoadingMessage('Finalizing OCR...');

@@ -2,11 +2,11 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import FileDropzone from '../../components/FileDropzone';
 import Spinner from '../../components/Spinner';
 import Alert from '../../components/Alert';
+import PageThumbnail from '../../components/PageThumbnail';
 
 interface Page {
   id: number;
   originalIndex: number;
-  dataUrl: string;
   isSelected: boolean;
 }
 
@@ -18,34 +18,26 @@ const ExtractPagesView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   
   const originalPdfDoc = useRef<any>(null);
+  const pdfDocProxy = useRef<any>(null);
 
   const renderPdfPages = useCallback(async (pdfFile: File) => {
     setIsLoading(true);
     setLoadingMessage('Loading PDF...');
     setError(null);
+    setPages([]);
 
     try {
       const { pdfjsLib, PDFLib } = (window as any);
       
       const arrayBuffer = await pdfFile.arrayBuffer();
-      originalPdfDoc.current = await PDFLib.PDFDocument.load(arrayBuffer);
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const numPages = pdf.numPages;
+      originalPdfDoc.current = await PDFLib.PDFDocument.load(arrayBuffer.slice(0));
+      pdfDocProxy.current = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
+      
+      const numPages = pdfDocProxy.current.numPages;
       const newPages: Page[] = [];
 
       for (let i = 1; i <= numPages; i++) {
-        setLoadingMessage(`Rendering page ${i} of ${numPages}...`);
-        const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 0.5 });
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-
-        if (context) {
-            await page.render({ canvasContext: context, viewport: viewport }).promise;
-            newPages.push({ id: i, originalIndex: i - 1, dataUrl: canvas.toDataURL(), isSelected: false });
-        }
+        newPages.push({ id: i, originalIndex: i - 1, isSelected: false });
       }
       setPages(newPages);
     } catch (e) {
@@ -64,14 +56,17 @@ const ExtractPagesView: React.FC = () => {
     } else {
       setPages([]);
       originalPdfDoc.current = null;
+      pdfDocProxy.current = null;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file]);
+  }, [file, renderPdfPages]);
 
   const handleFileSelected = (selectedFiles: File[]) => {
     setError(null);
     const pdfFile = selectedFiles.find(f => f.type === 'application/pdf');
     if (pdfFile) {
+       if (pdfFile.size > 25 * 1024 * 1024) { // 25MB warning
+        setError("Warning: You've selected a large file. Page rendering may be slow.");
+      }
       setFile(pdfFile);
     } else {
       setError('Please select a single PDF file.');
@@ -125,14 +120,14 @@ const ExtractPagesView: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto">
-      {error && <Alert type="error" message={error} />}
+      {error && <Alert type={error.startsWith('Warning:') ? 'info' : 'error'} message={error} />}
       {!isLoading && !file && (
         <FileDropzone onFilesSelected={handleFileSelected} accept="application/pdf" multiple={false} message="Select a PDF to extract pages from" />
       )}
 
       {isLoading && <Spinner message={loadingMessage} />}
 
-      {!isLoading && file && (
+      {!isLoading && file && pages.length > 0 && (
         <div className="space-y-6">
           <div className="flex justify-between items-center p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
             <h3 className="text-lg font-medium">Select pages to extract ({selectedCount} / {pages.length})</h3>
@@ -149,13 +144,19 @@ const ExtractPagesView: React.FC = () => {
                 onClick={() => togglePageSelection(page.id)}
                 className={`relative group border-2 rounded-lg p-1 cursor-pointer bg-white dark:bg-slate-800 shadow-sm transition-all ${page.isSelected ? 'border-sky-500 scale-105' : 'border-transparent hover:border-slate-300 dark:hover:border-slate-600'}`}
                 >
-                <img src={page.dataUrl} alt={`Page ${index + 1}`} className="w-full h-auto rounded-md" />
-                <div className={`absolute inset-0 flex items-center justify-center transition-colors ${page.isSelected ? 'bg-sky-900/30' : 'bg-black/0 group-hover:bg-black/20'}`}>
-                    <div className={`h-8 w-8 rounded-full flex items-center justify-center transition-all scale-75 ${page.isSelected ? 'bg-sky-500 scale-100' : 'bg-slate-500/50 opacity-0 group-hover:opacity-100'}`}>
-                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                    </div>
-                </div>
-                <span className="absolute bottom-1 left-1 bg-slate-800 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">{index + 1}</span>
+                <PageThumbnail pdfDoc={pdfDocProxy.current} pageNumber={page.id}>
+                    {(dataUrl) => (
+                        <>
+                            <img src={dataUrl} alt={`Page ${index + 1}`} className="w-full h-auto rounded-md" />
+                             <div className={`absolute inset-0 flex items-center justify-center transition-colors ${page.isSelected ? 'bg-sky-900/30' : 'bg-black/0 group-hover:bg-black/20'}`}>
+                                <div className={`h-8 w-8 rounded-full flex items-center justify-center transition-all scale-75 ${page.isSelected ? 'bg-sky-500 scale-100' : 'bg-slate-500/50 opacity-0 group-hover:opacity-100'}`}>
+                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                                </div>
+                            </div>
+                            <span className="absolute bottom-1 left-1 bg-slate-800 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">{index + 1}</span>
+                        </>
+                    )}
+                </PageThumbnail>
               </div>
             ))}
           </div>

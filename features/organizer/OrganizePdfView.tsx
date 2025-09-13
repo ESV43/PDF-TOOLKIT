@@ -1,13 +1,12 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import FileDropzone from '../../components/FileDropzone';
 import Spinner from '../../components/Spinner';
 import Alert from '../../components/Alert';
+import PageThumbnail from '../../components/PageThumbnail';
 
 interface Page {
   id: number;
   originalIndex: number;
-  dataUrl: string;
 }
 
 const OrganizePdfView: React.FC = () => {
@@ -18,35 +17,27 @@ const OrganizePdfView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [draggedItemId, setDraggedItemId] = useState<number | null>(null);
   
-  const originalPdfDoc = useRef<any>(null);
+  const originalPdfDoc = useRef<any>(null); // pdf-lib doc for saving
+  const pdfDocProxy = useRef<any>(null); // pdf.js doc for rendering
 
   const renderPdfPages = useCallback(async (pdfFile: File) => {
     setIsLoading(true);
     setLoadingMessage('Loading PDF...');
     setError(null);
+    setPages([]);
 
     try {
       const { pdfjsLib, PDFLib } = (window as any);
       
       const arrayBuffer = await pdfFile.arrayBuffer();
-      originalPdfDoc.current = await PDFLib.PDFDocument.load(arrayBuffer);
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const numPages = pdf.numPages;
+      // Use separate ArrayBuffers for each library to avoid conflicts
+      originalPdfDoc.current = await PDFLib.PDFDocument.load(arrayBuffer.slice(0));
+      pdfDocProxy.current = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
+      const numPages = pdfDocProxy.current.numPages;
       const newPages: Page[] = [];
 
       for (let i = 1; i <= numPages; i++) {
-        setLoadingMessage(`Rendering page ${i} of ${numPages}...`);
-        const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 0.5 });
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-
-        if (context) {
-            await page.render({ canvasContext: context, viewport: viewport }).promise;
-            newPages.push({ id: i, originalIndex: i - 1, dataUrl: canvas.toDataURL() });
-        }
+        newPages.push({ id: i, originalIndex: i - 1 });
       }
       setPages(newPages);
     } catch (e) {
@@ -65,14 +56,17 @@ const OrganizePdfView: React.FC = () => {
     } else {
       setPages([]);
       originalPdfDoc.current = null;
+      pdfDocProxy.current = null;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file]);
+  }, [file, renderPdfPages]);
 
   const handleFileSelected = (selectedFiles: File[]) => {
     setError(null);
     const pdfFile = selectedFiles.find(f => f.type === 'application/pdf');
     if (pdfFile) {
+      if (pdfFile.size > 25 * 1024 * 1024) { // 25MB warning
+        setError("Warning: You've selected a large file. Page rendering may be slow.");
+      }
       setFile(pdfFile);
     } else {
       setError('Please select a single PDF file.');
@@ -144,14 +138,14 @@ const OrganizePdfView: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto">
-      {error && <Alert type="error" message={error} />}
+      {error && <Alert type={error.startsWith('Warning:') ? 'info' : 'error'} message={error} />}
       {!isLoading && !file && (
         <FileDropzone onFilesSelected={handleFileSelected} accept="application/pdf" multiple={false} message="Select a PDF to organize its pages" />
       )}
 
       {isLoading && <Spinner message={loadingMessage} />}
 
-      {!isLoading && file && (
+      {!isLoading && file && pages.length > 0 && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {pages.map((page, index) => (
@@ -163,13 +157,19 @@ const OrganizePdfView: React.FC = () => {
                 onDragEnd={handleDragEnd}
                 className={`relative group border-2 rounded-lg p-1 cursor-move bg-white dark:bg-slate-800 shadow-sm transition-all ${draggedItemId === page.id ? 'border-sky-500 scale-105' : 'border-transparent'}`}
                 >
-                <img src={page.dataUrl} alt={`Page ${index + 1}`} className="w-full h-auto rounded-md" />
-                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-colors flex items-center justify-center">
-                  <button onClick={() => deletePage(page.id)} className="absolute top-1 right-1 h-6 w-6 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transform scale-50 group-hover:scale-100 transition-all">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-                </div>
-                <span className="absolute bottom-1 left-1 bg-slate-800 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">{index + 1}</span>
+                <PageThumbnail pdfDoc={pdfDocProxy.current} pageNumber={page.id}>
+                  {(dataUrl) => (
+                    <>
+                      <img src={dataUrl} alt={`Page ${index + 1}`} className="w-full h-auto rounded-md" />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-colors flex items-center justify-center">
+                        <button onClick={() => deletePage(page.id)} className="absolute top-1 right-1 h-6 w-6 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transform scale-50 group-hover:scale-100 transition-all" aria-label="Delete page">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                      <span className="absolute bottom-1 left-1 bg-slate-800 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">{index + 1}</span>
+                    </>
+                  )}
+                </PageThumbnail>
               </div>
             ))}
           </div>

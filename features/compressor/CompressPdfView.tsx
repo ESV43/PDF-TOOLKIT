@@ -221,6 +221,8 @@ const CompressPdfView: React.FC<CompressPdfViewProps> = ({ initialFile }) => {
               });
             }
         }
+        // Yield to the main thread to prevent UI freezing on large files
+        await new Promise(resolve => setTimeout(resolve, 10));
     }
     
     if (ocrWorker) {

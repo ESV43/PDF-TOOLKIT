@@ -3,11 +3,11 @@ import FileDropzone from '../../components/FileDropzone';
 import Spinner from '../../components/Spinner';
 import Alert from '../../components/Alert';
 import { degrees } from 'pdf-lib';
+import PageThumbnail from '../../components/PageThumbnail';
 
 interface Page {
   id: number;
   originalIndex: number;
-  dataUrl: string;
   rotation: number;
 }
 
@@ -19,33 +19,24 @@ const RotatePdfView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const originalPdfDoc = useRef<any>(null);
+  const pdfDocProxy = useRef<any>(null);
 
   const renderPdfPages = useCallback(async (pdfFile: File) => {
     setIsLoading(true);
     setLoadingMessage('Loading PDF...');
     setError(null);
+    setPages([]);
 
     try {
       const { pdfjsLib, PDFLib } = (window as any);
       const arrayBuffer = await pdfFile.arrayBuffer();
-      originalPdfDoc.current = await PDFLib.PDFDocument.load(arrayBuffer);
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const numPages = pdf.numPages;
+      originalPdfDoc.current = await PDFLib.PDFDocument.load(arrayBuffer.slice(0));
+      pdfDocProxy.current = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
+      const numPages = pdfDocProxy.current.numPages;
       const newPages: Page[] = [];
 
       for (let i = 1; i <= numPages; i++) {
-        setLoadingMessage(`Rendering page ${i} of ${numPages}...`);
-        const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 0.5 });
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-
-        if (context) {
-          await page.render({ canvasContext: context, viewport: viewport }).promise;
-          newPages.push({ id: i, originalIndex: i - 1, dataUrl: canvas.toDataURL(), rotation: 0 });
-        }
+        newPages.push({ id: i, originalIndex: i - 1, rotation: 0 });
       }
       setPages(newPages);
     } catch (e) {
@@ -63,14 +54,17 @@ const RotatePdfView: React.FC = () => {
     } else {
       setPages([]);
       originalPdfDoc.current = null;
+      pdfDocProxy.current = null;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file]);
+  }, [file, renderPdfPages]);
 
   const handleFileSelected = (selectedFiles: File[]) => {
     setError(null);
     const pdfFile = selectedFiles.find(f => f.type === 'application/pdf');
     if (pdfFile) {
+       if (pdfFile.size > 25 * 1024 * 1024) { // 25MB warning
+        setError("Warning: You've selected a large file. Page rendering may be slow.");
+      }
       setFile(pdfFile);
     } else {
       setError('Please select a single PDF file.');
@@ -78,11 +72,11 @@ const RotatePdfView: React.FC = () => {
   };
 
   const rotatePage = (id: number, angle: number) => {
-    setPages(pages.map(p => p.id === id ? { ...p, rotation: (p.rotation + angle) % 360 } : p));
+    setPages(pages.map(p => p.id === id ? { ...p, rotation: (p.rotation + angle + 360) % 360 } : p));
   };
   
   const rotateAll = (angle: number) => {
-     setPages(pages.map(p => ({ ...p, rotation: (p.rotation + angle) % 360 })));
+     setPages(pages.map(p => ({ ...p, rotation: (p.rotation + angle + 360) % 360 })));
   }
 
   const savePdf = async () => {
@@ -94,10 +88,12 @@ const RotatePdfView: React.FC = () => {
     setLoadingMessage("Applying rotations and saving PDF...");
     try {
       const pdfDoc = originalPdfDoc.current;
+      const pdfPages = pdfDoc.getPages();
       pages.forEach(p => {
         if (p.rotation !== 0) {
-          const page = pdfDoc.getPage(p.originalIndex);
-          page.setRotation(degrees(p.rotation));
+          const page = pdfPages[p.originalIndex];
+          const currentRotation = page.getRotation().angle;
+          page.setRotation(degrees(currentRotation + p.rotation));
         }
       });
       
@@ -125,14 +121,14 @@ const RotatePdfView: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto">
-      {error && <Alert type="error" message={error} />}
+      {error && <Alert type={error.startsWith('Warning:') ? 'info' : 'error'} message={error} />}
       {!isLoading && !file && (
         <FileDropzone onFilesSelected={handleFileSelected} accept="application/pdf" multiple={false} message="Select a PDF to rotate its pages" />
       )}
 
       {isLoading && <Spinner message={loadingMessage} />}
 
-      {!isLoading && file && (
+      {!isLoading && file && pages.length > 0 && (
         <div className="space-y-6">
             <div className="flex justify-center items-center p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm gap-4">
                 <h3 className="text-lg font-medium">Rotate all pages:</h3>
@@ -145,10 +141,16 @@ const RotatePdfView: React.FC = () => {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {pages.map((page, index) => (
               <div key={page.id} className="relative group bg-white dark:bg-slate-800 rounded-lg shadow-sm p-1">
-                <img src={page.dataUrl} alt={`Page ${index + 1}`} className="w-full h-auto rounded-md transition-transform" style={{ transform: `rotate(${page.rotation}deg)` }}/>
-                <div className="absolute bottom-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => rotatePage(page.id, 270)} className="h-7 w-7 bg-slate-800/60 text-white rounded-full flex items-center justify-center hover:bg-slate-900/80">↺</button>
-                    <button onClick={() => rotatePage(page.id, 90)} className="h-7 w-7 bg-slate-800/60 text-white rounded-full flex items-center justify-center hover:bg-slate-900/80">↻</button>
+                <div style={{ transform: `rotate(${page.rotation}deg)` }} className="transition-transform duration-300">
+                    <PageThumbnail pdfDoc={pdfDocProxy.current} pageNumber={page.id}>
+                        {(dataUrl) => (
+                           <img src={dataUrl} alt={`Page ${index + 1}`} className="w-full h-auto rounded-md" />
+                        )}
+                    </PageThumbnail>
+                </div>
+                <div className="absolute bottom-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <button onClick={() => rotatePage(page.id, 270)} className="h-7 w-7 bg-slate-800/60 text-white rounded-full flex items-center justify-center hover:bg-slate-900/80" aria-label="Rotate left">↺</button>
+                    <button onClick={() => rotatePage(page.id, 90)} className="h-7 w-7 bg-slate-800/60 text-white rounded-full flex items-center justify-center hover:bg-slate-900/80" aria-label="Rotate right">↻</button>
                 </div>
                 <span className="absolute bottom-1 left-1 bg-slate-800 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">{index + 1}</span>
               </div>
