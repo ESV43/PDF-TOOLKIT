@@ -13,8 +13,9 @@ interface CameraToPdfViewProps {
 }
 
 interface Point { x: number; y: number; }
-type ViewState = 'INITIAL' | 'SCANNING' | 'EDITING' | 'SUCCESS';
+type ViewState = 'INITIAL' | 'SCANNING' | 'EDITING' | 'FILTERING' | 'SUCCESS';
 type Corner = 'tl' | 'tr' | 'bl' | 'br';
+type FilterType = 'normal' | 'bw' | 'enhance';
 
 
 const CameraToPdfView: React.FC<CameraToPdfViewProps> = ({ navigateToTool }) => {
@@ -26,10 +27,14 @@ const CameraToPdfView: React.FC<CameraToPdfViewProps> = ({ navigateToTool }) => 
   const [processingMessage, setProcessingMessage] = useState('');
   const [generatedPdfInfo, setGeneratedPdfInfo] = useState<{ blob: Blob; fileName: string } | null>(null);
 
-  // States for the new editing flow
+  // States for the editing & filtering flow
   const [capturedImage, setCapturedImage] = useState<{ dataUrl: string; width: number; height: number } | null>(null);
   const [corners, setCorners] = useState<{ tl: Point; tr: Point; bl: Point; br: Point } | null>(null);
   const [draggingCorner, setDraggingCorner] = useState<Corner | null>(null);
+  const [croppedImage, setCroppedImage] = useState<{ dataUrl: string } | null>(null);
+  const [activeFilter, setActiveFilter] = useState<FilterType>('normal');
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -80,6 +85,13 @@ const CameraToPdfView: React.FC<CameraToPdfViewProps> = ({ navigateToTool }) => 
       stopCamera();
     }
   }, [viewState, startCamera, stopCamera]);
+    
+  useEffect(() => {
+    if (viewState === 'FILTERING' && croppedImage) {
+        setPreviewUrl(croppedImage.dataUrl);
+        setActiveFilter('normal');
+    }
+  }, [viewState, croppedImage]);
 
   useEffect(() => {
     return () => {
@@ -96,7 +108,6 @@ const CameraToPdfView: React.FC<CameraToPdfViewProps> = ({ navigateToTool }) => 
     const video = videoRef.current;
     const tempCanvas = document.createElement('canvas');
     
-    // --- Image Resizing Logic to prevent memory issues ---
     const MAX_DIMENSION = 1280;
     let newWidth, newHeight;
 
@@ -121,46 +132,69 @@ const CameraToPdfView: React.FC<CameraToPdfViewProps> = ({ navigateToTool }) => 
   };
 
   const findInitialCorners = useCallback(async (imageUrl: string) => {
-      setProcessingMessage('Finding document...');
-      setIsProcessing(true);
-      try {
+    setProcessingMessage('Finding document...');
+    setIsProcessing(true);
+    
+    const cv = (window as any).cv;
+    if (!cv) {
+        setError("Scanner engine is not ready.");
+        setIsProcessing(false);
+        return;
+    }
+
+    let src, gray, blurred, thresh, morphed, contours, hierarchy, bestContourMat;
+    src = gray = blurred = thresh = morphed = contours = hierarchy = bestContourMat = null;
+
+    try {
         const img = document.createElement('img');
         img.src = imageUrl;
-        await new Promise(resolve => { img.onload = resolve; });
+        await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+        });
 
-        const cv = (window as any).cv;
-        let src = cv.imread(img);
-        let gray = new cv.Mat();
+        src = cv.imread(img);
+        gray = new cv.Mat();
         cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-        let blurred = new cv.Mat();
+
+        blurred = new cv.Mat();
         cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
-        let edges = new cv.Mat();
-        cv.Canny(blurred, edges, 75, 200);
+
+        thresh = new cv.Mat();
+        cv.adaptiveThreshold(blurred, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 11, 2);
         
-        let contours = new cv.MatVector();
-        let hierarchy = new cv.Mat();
-        cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+        morphed = new cv.Mat();
+        let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
+        cv.morphologyEx(thresh, morphed, cv.MORPH_CLOSE, kernel);
+        kernel.delete();
+
+        contours = new cv.MatVector();
+        hierarchy = new cv.Mat();
+        cv.findContours(morphed, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
         let maxArea = -1;
-        let bestContourMat = null;
+        const minArea = src.rows * src.cols * 0.1;
+
         for (let i = 0; i < contours.size(); ++i) {
             const cnt = contours.get(i);
             const area = cv.contourArea(cnt);
-            if (area > 10000) {
+
+            if (area > minArea) {
                 const peri = cv.arcLength(cnt, true);
                 const approx = new cv.Mat();
                 cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
-                if (approx.rows === 4 && area > maxArea) {
-                    bestContourMat?.delete();
-                    maxArea = area;
-                    bestContourMat = approx.clone();
+
+                if (approx.rows === 4 && cv.isContourConvex(approx)) {
+                    if (area > maxArea) {
+                        bestContourMat?.delete();
+                        maxArea = area;
+                        bestContourMat = approx.clone();
+                    }
                 }
                 approx.delete();
             }
             cnt.delete();
         }
-        
-        src.delete(); gray.delete(); blurred.delete(); edges.delete(); contours.delete(); hierarchy.delete();
 
         if (bestContourMat) {
             const points = [
@@ -169,29 +203,42 @@ const CameraToPdfView: React.FC<CameraToPdfViewProps> = ({ navigateToTool }) => 
                 {x: bestContourMat.data32S[4], y: bestContourMat.data32S[5]},
                 {x: bestContourMat.data32S[6], y: bestContourMat.data32S[7]},
             ];
-            bestContourMat.delete();
 
             const cornersBySum = [...points].sort((a, b) => (a.x + a.y) - (b.x + b.y));
             const cornersByDiff = [...points].sort((a, b) => (a.y - a.x) - (b.y - b.x));
 
             setCorners({ tl: cornersBySum[0], br: cornersBySum[3], tr: cornersByDiff[0], bl: cornersByDiff[3] });
         } else {
-             // Default to full image if no contour found
-             const margin = 20;
-             setCorners({
+            const margin = capturedImage!.width * 0.05;
+            setCorners({
                 tl: { x: margin, y: margin },
                 tr: { x: capturedImage!.width - margin, y: margin },
                 bl: { x: margin, y: capturedImage!.height - margin },
                 br: { x: capturedImage!.width - margin, y: capturedImage!.height - margin },
-             });
+            });
         }
-      } catch (err) {
-        console.error(err);
-        setError("Could not auto-detect corners.");
-      } finally {
+    } catch (err) {
+        console.error("OpenCV error:", err);
+        setError("Could not auto-detect corners. Please adjust them manually.");
+        const margin = capturedImage!.width * 0.05;
+        setCorners({
+            tl: { x: margin, y: margin },
+            tr: { x: capturedImage!.width - margin, y: margin },
+            bl: { x: margin, y: capturedImage!.height - margin },
+            br: { x: capturedImage!.width - margin, y: capturedImage!.height - margin },
+        });
+    } finally {
+        src?.delete();
+        gray?.delete();
+        blurred?.delete();
+        thresh?.delete();
+        morphed?.delete();
+        contours?.delete();
+        hierarchy?.delete();
+        bestContourMat?.delete();
         setIsProcessing(false);
         setProcessingMessage('');
-      }
+    }
   }, [capturedImage]);
 
   useEffect(() => {
@@ -203,8 +250,11 @@ const CameraToPdfView: React.FC<CameraToPdfViewProps> = ({ navigateToTool }) => 
 
   const handleApplyCrop = async () => {
     if (!capturedImage || !corners) return;
-    setProcessingMessage('Applying filter...');
+    setProcessingMessage('Applying crop...');
     setIsProcessing(true);
+
+    let src, warped, M, srcTri, dstTri;
+    src = warped = M = srcTri = dstTri = null;
 
     try {
         const img = document.createElement('img');
@@ -220,36 +270,35 @@ const CameraToPdfView: React.FC<CameraToPdfViewProps> = ({ navigateToTool }) => 
         const maxHeight = Math.max(heightA, heightB);
 
         const cv = (window as any).cv;
-        const src = cv.imread(img);
-        const warped = new cv.Mat();
+        src = cv.imread(img);
+        warped = new cv.Mat();
         const dsize = new cv.Size(maxWidth, maxHeight);
-        const srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, bl.x, bl.y, br.x, br.y]);
-        const dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, maxWidth, 0, 0, maxHeight, maxWidth, maxHeight]);
-        const M = cv.getPerspectiveTransform(srcTri, dstTri);
+        srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, bl.x, bl.y, br.x, br.y]);
+        dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, maxWidth, 0, 0, maxHeight, maxWidth, maxHeight]);
+        M = cv.getPerspectiveTransform(srcTri, dstTri);
 
+        // Perform the perspective warp on the color image. No filters are applied here.
         cv.warpPerspective(src, warped, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
-        cv.cvtColor(warped, warped, cv.COLOR_RGBA2GRAY, 0);
         
-        const alpha = 1.5; // Contrast
-        const beta = 10;   // Brightness
-        warped.convertTo(warped, -1, alpha, beta);
-
         const outputCanvas = document.createElement('canvas');
         cv.imshow(outputCanvas, warped);
         const dataUrl = outputCanvas.toDataURL('image/jpeg', 0.95);
-        setScannedPages(prev => [...prev, { id: Date.now(), dataUrl }]);
-
-        // Cleanup
-        src.delete(); warped.delete(); srcTri.delete(); dstTri.delete(); M.delete();
-
-        // Reset for next scan
+        
+        setCroppedImage({ dataUrl });
+        setActiveFilter('normal');
+        setViewState('FILTERING');
+        
         setCapturedImage(null);
         setCorners(null);
-        setViewState('SCANNING');
 
     } catch (err: any) {
         setError(err.message || "An error occurred during image processing.");
     } finally {
+        src?.delete(); 
+        warped?.delete(); 
+        srcTri?.delete(); 
+        dstTri?.delete(); 
+        M?.delete();
         setIsProcessing(false);
         setProcessingMessage('');
     }
@@ -285,6 +334,59 @@ const CameraToPdfView: React.FC<CameraToPdfViewProps> = ({ navigateToTool }) => 
     setDraggingCorner(null);
   };
 
+  const applyFilter = useCallback(async (filter: FilterType) => {
+    if (!croppedImage) return;
+    setActiveFilter(filter);
+    
+    if (filter === 'normal') {
+        setPreviewUrl(croppedImage.dataUrl);
+        return;
+    }
+    
+    setIsPreviewLoading(true);
+
+    try {
+        const img = document.createElement('img');
+        img.src = croppedImage.dataUrl;
+        await new Promise(resolve => { img.onload = resolve; });
+
+        const cv = (window as any).cv;
+        let src = cv.imread(img);
+        let finalMat = new cv.Mat();
+
+        if (filter === 'bw') {
+            let gray = new cv.Mat();
+            cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+            cv.adaptiveThreshold(gray, finalMat, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 15, 4);
+            gray.delete();
+        } else if (filter === 'enhance') {
+            const alpha = 1.2; // Contrast
+            const beta = 5;    // Brightness
+            src.convertTo(finalMat, -1, alpha, beta);
+        }
+        
+        const outputCanvas = document.createElement('canvas');
+        cv.imshow(outputCanvas, finalMat);
+        const dataUrl = outputCanvas.toDataURL('image/jpeg', 0.95);
+        setPreviewUrl(dataUrl);
+        
+        src.delete();
+        finalMat.delete();
+    } catch (err) {
+        console.error(err);
+        setError("Failed to apply filter preview.");
+    } finally {
+        setIsPreviewLoading(false);
+    }
+  }, [croppedImage]);
+  
+  const handleAddFinalPage = () => {
+    if (!previewUrl) return;
+    setScannedPages(prev => [...prev, { id: Date.now(), dataUrl: previewUrl }]);
+    setCroppedImage(null);
+    setPreviewUrl(null);
+    setViewState('SCANNING');
+  };
 
   const removePage = (id: number) => {
     setScannedPages(scannedPages.filter(img => img.id !== id));
@@ -497,10 +599,43 @@ const CameraToPdfView: React.FC<CameraToPdfViewProps> = ({ navigateToTool }) => 
     );
   };
   
+  const renderFilteringView = () => (
+    <div className="space-y-4">
+        <h2 className="text-xl font-bold text-center text-slate-800 dark:text-slate-200">Apply a Filter</h2>
+        <div className="relative w-full max-w-lg mx-auto aspect-[8.5/11] bg-slate-200 dark:bg-slate-700 rounded-lg shadow-md flex items-center justify-center">
+            {previewUrl && <img src={previewUrl} alt="Filtered preview" className="w-full h-full object-contain rounded-lg" />}
+            {(isPreviewLoading || !previewUrl) && (
+                <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-lg">
+                    <Spinner message={isPreviewLoading ? "Applying filter..." : "Loading..."} />
+                </div>
+            )}
+        </div>
+        
+        <div>
+            <label className="block text-sm text-center font-medium text-slate-700 dark:text-slate-300 mb-3">Filter Options</label>
+            <div className="flex justify-center gap-2 sm:gap-4">
+                <button onClick={() => applyFilter('normal')} className={`px-4 py-2 text-sm font-medium rounded-md transition-colors w-28 ${activeFilter === 'normal' ? 'bg-sky-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600'}`}>Normal</button>
+                <button onClick={() => applyFilter('bw')} className={`px-4 py-2 text-sm font-medium rounded-md transition-colors w-28 ${activeFilter === 'bw' ? 'bg-sky-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600'}`}>Scan B&W</button>
+                <button onClick={() => applyFilter('enhance')} className={`px-4 py-2 text-sm font-medium rounded-md transition-colors w-28 ${activeFilter === 'enhance' ? 'bg-sky-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600'}`}>Enhanced</button>
+            </div>
+        </div>
+        
+        <div className="flex justify-center gap-4 pt-4 mt-4 border-t border-slate-200 dark:border-slate-700">
+            <button onClick={() => { setCroppedImage(null); setPreviewUrl(null); setViewState('SCANNING'); }} className="px-6 py-3 font-semibold text-slate-700 bg-slate-200 rounded-lg hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 disabled:opacity-50" disabled={isPreviewLoading}>
+                Discard
+            </button>
+            <button onClick={handleAddFinalPage} className="px-6 py-3 font-semibold text-white bg-sky-600 rounded-lg shadow-md hover:bg-sky-700 disabled:bg-slate-400" disabled={!previewUrl || isPreviewLoading}>
+                Add Page
+            </button>
+        </div>
+    </div>
+  );
+
   let content;
   switch (viewState) {
     case 'SCANNING': content = renderScannerView(); break;
     case 'EDITING': content = renderEditingView(); break;
+    case 'FILTERING': content = renderFilteringView(); break;
     case 'SUCCESS': content = renderSuccessView(); break;
     case 'INITIAL':
     default:
@@ -510,7 +645,7 @@ const CameraToPdfView: React.FC<CameraToPdfViewProps> = ({ navigateToTool }) => 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {error && <Alert type="error" message={error} />}
-      {isProcessing && !capturedImage && <Spinner message={processingMessage} />}
+      {isProcessing && !capturedImage && viewState !== 'FILTERING' && <Spinner message={processingMessage} />}
       {content}
     </div>
   );
