@@ -1,0 +1,7 @@
+{
+  "name": "Pocket PDF Toolkit",
+  "description": "A mobile-first PDF utility app designed for simplicity and speed. It allows users to perform common PDF operations like merging, organizing, and converting files directly on their device.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
